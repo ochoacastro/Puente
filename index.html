@@ -75,18 +75,38 @@
     margin:16px 0 6px;
   }
   .life{
-    width:30px;height:30px;border-radius:50%;
-    background:var(--pink);
+    width:28px;height:28px;
     display:flex;align-items:center;justify-content:center;
-    font-size:15px;
-    box-shadow:0 0 0 3px rgba(255,47,110,0.15);
     transition:all .35s ease;
   }
+  .life svg{
+    width:100%;height:100%;
+    display:block;
+    filter:drop-shadow(0 0 3px rgba(255,47,110,0.35));
+  }
   .life.lost{
-    background:transparent;
-    box-shadow:0 0 0 3px rgba(255,255,255,0.06);
-    color:var(--muted);
     transform:scale(.8) rotate(20deg);
+    opacity:.5;
+  }
+  .life.lost svg{
+    filter:none;
+  }
+
+  .score-tag{
+    text-align:center;
+    margin-top:4px;
+    font-family:'Bebas Neue',sans-serif;
+    font-size:20px;
+    letter-spacing:1px;
+    color:var(--gold);
+  }
+  .score-tag .plus{
+    display:inline-block;
+    animation:scorePop .5s ease;
+  }
+  @keyframes scorePop{
+    0%{transform:scale(1.5); color:var(--teal);}
+    100%{transform:scale(1); color:var(--gold);}
   }
 
   .level-tag{
@@ -100,22 +120,49 @@
 
   .bridge-wrap{
     overflow-x:auto;
-    padding:14px 6px 18px;
+    padding:44px 6px 40px;
     margin-bottom:6px;
     -webkit-overflow-scrolling:touch;
+    position:relative;
+    border-radius:14px;
+    background:
+      linear-gradient(180deg, rgba(20,20,32,0) 0%, rgba(20,20,32,0) 38%, #06060a 39%, #030305 100%);
+  }
+  .bridge-wrap::before{
+    content:"";
+    position:absolute;
+    left:0;right:0;top:38%;bottom:0;
+    background:
+      repeating-linear-gradient(100deg, rgba(255,255,255,0.025) 0 14px, transparent 14px 30px),
+      repeating-linear-gradient(80deg, rgba(255,255,255,0.02) 0 10px, transparent 10px 26px);
+    pointer-events:none;
   }
   .bridge{
     display:flex;
-    gap:10px;
+    gap:6px;
     width:max-content;
-    padding:0 6px;
+    padding:0 26px;
     position:relative;
+    z-index:1;
   }
+  .bridge::before,
+  .bridge::after{
+    content:"";
+    position:absolute;
+    left:-4px;right:-4px;
+    height:3px;
+    background:repeating-linear-gradient(90deg, #8a6a3d 0 10px, #5c4223 10px 12px);
+    border-radius:3px;
+    z-index:0;
+  }
+  .bridge::before{ top:-14px; }
+  .bridge::after{ bottom:-14px; }
   .tile{
     width:46px;height:46px;
-    border-radius:10px;
-    background:var(--panel);
-    border:2px solid rgba(255,255,255,0.08);
+    border-radius:4px;
+    background:linear-gradient(180deg,#7a5330,#5e3f22);
+    border:2px solid rgba(0,0,0,0.35);
+    box-shadow:inset 0 -4px 0 rgba(0,0,0,0.25), inset 0 2px 0 rgba(255,255,255,0.08);
     display:flex;align-items:center;justify-content:center;
     font-weight:700;
     font-size:13px;
@@ -124,14 +171,25 @@
     flex-shrink:0;
     transition:all .3s ease;
   }
+  .tile::before,
+  .tile::after{
+    content:"";
+    position:absolute;
+    width:3px;height:3px;
+    border-radius:50%;
+    background:#2a1a0d;
+    top:3px;
+  }
+  .tile::before{ left:3px; }
+  .tile::after{ right:3px; }
   .tile.done{
-    background:rgba(0,210,180,0.15);
+    background:linear-gradient(180deg,#0f6e5f,#0a4d43);
     border-color:var(--teal);
     color:var(--teal);
   }
   .tile.current{
     border-color:var(--gold);
-    box-shadow:0 0 0 4px rgba(255,204,51,0.15);
+    box-shadow:0 0 0 4px rgba(255,204,51,0.15), inset 0 -4px 0 rgba(0,0,0,0.25);
     color:var(--gold);
   }
   .tile.crack{
@@ -140,9 +198,17 @@
   }
   .tile .token{
     position:absolute;
-    top:-30px;
-    font-size:20px;
+    top:-38px;
     animation:bob 1.4s ease-in-out infinite;
+    z-index:2;
+  }
+  .rival{
+    position:absolute;
+    top:-32px;
+    z-index:1;
+    opacity:.55;
+    transform:scale(.75);
+    transition:left .5s ease;
   }
   @keyframes bob{
     0%,100%{transform:translateY(0);}
@@ -171,6 +237,69 @@
     100%{transform:translateY(70px) rotate(200deg); opacity:0;}
   }
 
+  /* ---- Muñeco animado (sin emoji) ---- */
+  .runner{
+    width:20px;height:30px;
+    position:relative;
+  }
+  .runner .r-head{
+    width:11px;height:11px;
+    border-radius:50%;
+    background:var(--gold);
+    position:absolute;
+    top:0;left:4.5px;
+    box-shadow:inset -2px -2px 0 rgba(0,0,0,0.2);
+  }
+  .runner .r-body{
+    width:8px;height:12px;
+    border-radius:4px;
+    background:var(--pink);
+    position:absolute;
+    top:10px;left:6px;
+  }
+  .runner .r-leg{
+    width:3px;height:11px;
+    border-radius:2px;
+    background:#2b2b38;
+    position:absolute;
+    top:20px;left:6px;
+    transform-origin:top center;
+    animation:runcycle .32s ease-in-out infinite;
+  }
+  .runner .r-leg.right{
+    left:11px;
+    animation-delay:.16s;
+  }
+  .runner .r-arm{
+    width:2.5px;height:9px;
+    border-radius:2px;
+    background:var(--pink-dim);
+    position:absolute;
+    top:11px;left:3px;
+    transform-origin:top center;
+    animation:armcycle .32s ease-in-out infinite;
+  }
+  .runner .r-arm.right{
+    left:14.5px;
+    animation-delay:.16s;
+  }
+  @keyframes runcycle{
+    0%,100%{transform:rotate(28deg);}
+    50%{transform:rotate(-28deg);}
+  }
+  @keyframes armcycle{
+    0%,100%{transform:rotate(-24deg);}
+    50%{transform:rotate(24deg);}
+  }
+  .rival .runner .r-body{background:var(--teal);}
+  .rival:nth-child(odd) .runner .r-body{background:var(--gold);}
+  .token.jump .runner,
+  .token.fall .runner{ animation:none; }
+  .token.jump .r-leg,
+  .token.fall .r-leg,
+  .token.jump .r-arm,
+  .token.fall .r-arm{ animation:none; transform:rotate(0deg); }
+
   .question-card{
     background:var(--panel);
     border-radius:16px;
@@ -189,9 +318,23 @@
   .hint{color:var(--muted);font-size:12px;margin-bottom:16px;}
 
   .options{
+    position:relative;
+    width:100%;
+    max-width:260px;
+    aspect-ratio:1;
+    margin:0 auto;
     display:grid;
     grid-template-columns:1fr 1fr;
-    gap:12px;
+    grid-template-rows:1fr 1fr;
+    gap:20px;
+  }
+  .opt:nth-child(5):last-child{
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    width:calc(50% - 10px);
+    z-index:2;
   }
   .opt{
     background:#1f1f2c;
@@ -200,8 +343,12 @@
     font-family:'Poppins',sans-serif;
     font-weight:700;
     font-size:20px;
-    padding:16px 8px;
-    border-radius:12px;
+    padding:0;
+    border-radius:50%;
+    aspect-ratio:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
     cursor:pointer;
     transition:all .15s ease;
   }
@@ -255,6 +402,189 @@
     text-transform:uppercase;
   }
 
+  .name-form{
+    display:flex;
+    gap:8px;
+    margin-bottom:16px;
+    width:100%;
+    max-width:280px;
+  }
+  .name-form input{
+    flex:1;
+    background:#1f1f2c;
+    border:2px solid rgba(255,255,255,0.08);
+    border-radius:10px;
+    color:var(--text);
+    font-family:'Poppins',sans-serif;
+    font-size:15px;
+    padding:10px 12px;
+  }
+  .name-form input:focus{
+    outline:none;
+    border-color:var(--teal);
+  }
+
+  .leaderboard-list{
+    list-style:none;
+    padding:0;
+    margin:0 0 20px;
+    width:100%;
+    max-width:300px;
+    max-height:260px;
+    overflow-y:auto;
+  }
+  .leaderboard-list li{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    background:#1f1f2c;
+    border:1px solid rgba(255,255,255,0.07);
+    border-radius:10px;
+    padding:9px 14px;
+    margin-bottom:7px;
+    font-size:14px;
+    font-weight:600;
+  }
+  .leaderboard-list li:first-child{
+    border-color:var(--gold);
+    color:var(--gold);
+  }
+  .leaderboard-list li span:last-child{color:var(--teal);}
+  .leaderboard-list li:first-child span:last-child{color:var(--gold);}
+  .lb-info{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:2px;
+    text-align:left;
+  }
+  .lb-reached{
+    font-size:11px;
+    font-weight:500;
+    color:var(--muted);
+  }
+  .leaderboard-list li:first-child .lb-reached{color:var(--muted);}
+
+  .study-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    width:100%;
+    max-width:320px;
+    margin:0 auto 22px;
+  }
+  .study-row{
+    background:#1f1f2c;
+    border:1px solid rgba(255,255,255,0.08);
+    border-radius:10px;
+    padding:9px 6px;
+    font-weight:700;
+    font-size:15px;
+    color:var(--text);
+    animation:popIn .3s ease backwards;
+  }
+  .study-row span{color:var(--teal);}
+  @keyframes popIn{
+    0%{opacity:0; transform:translateY(6px);}
+    100%{opacity:1; transform:translateY(0);}
+  }
+
+  .cinematic{
+    position:absolute;
+    inset:0;
+    background:rgba(6,6,10,0.94);
+    border-radius:22px;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    z-index:6;
+    pointer-events:none;
+  }
+  .cinematic.show{display:flex;}
+  .cinematic-stage{
+    position:relative;
+    width:220px;
+    height:150px;
+  }
+  .cine-tile{
+    position:absolute;
+    bottom:20px;
+    width:56px;height:56px;
+    border-radius:6px;
+    background:linear-gradient(180deg,#7a5330,#5e3f22);
+    border:2px solid rgba(0,0,0,0.35);
+    box-shadow:inset 0 -4px 0 rgba(0,0,0,0.25), inset 0 2px 0 rgba(255,255,255,0.08);
+  }
+  .cine-tile.a{ left:10px; }
+  .cine-tile.b{ left:154px; }
+  .cine-tile.b.breaking{
+    animation:tileBreak 1s ease-in forwards;
+  }
+  @keyframes tileBreak{
+    0%,54%{ transform:translateY(0); opacity:1; border-color:rgba(0,0,0,0.35); }
+    60%{ transform:translateX(-4px); border-color:var(--crack); }
+    70%{ transform:translateX(4px); border-color:var(--crack); }
+    85%{ transform:translateY(30px); opacity:.4; border-color:var(--crack); }
+    100%{ transform:translateY(70px); opacity:0; border-color:var(--crack); }
+  }
+  .cinematic-stage .runner-wrap{
+    position:absolute;
+    bottom:52px;
+    left:26px;
+    transform:scale(1.8);
+  }
+  .cinematic-stage .runner-wrap.jump{
+    animation:jumpAcross .9s ease forwards;
+  }
+  .cinematic-stage .runner-wrap.fall{
+    animation:jumpThenFall 1s ease-in forwards;
+  }
+  @keyframes jumpAcross{
+    0%{ left:26px; bottom:52px; transform:scale(1.8) rotate(0deg); }
+    40%{ left:90px; bottom:112px; transform:scale(1.9) rotate(-10deg); }
+    100%{ left:170px; bottom:52px; transform:scale(1.8) rotate(0deg); }
+  }
+  @keyframes jumpThenFall{
+    0%{ left:26px; bottom:52px; transform:scale(1.8) rotate(0deg); opacity:1; }
+    40%{ left:90px; bottom:112px; transform:scale(1.9) rotate(-10deg); opacity:1; }
+    58%{ left:170px; bottom:52px; transform:scale(1.8) rotate(0deg); opacity:1; }
+    100%{ left:170px; bottom:-70px; transform:scale(1.4) rotate(220deg); opacity:0; }
+  }
+  .cinematic-label{
+    margin-top:26px;
+    font-family:'Bebas Neue',sans-serif;
+    font-size:24px;
+    letter-spacing:2px;
+  }
+  .cinematic-stage .runner-wrap.win{
+    animation:victoryBounce 1.3s ease-in-out 3;
+  }
+  @keyframes victoryBounce{
+    0%,40%,80%,100%{ left:50%; bottom:60px; transform:translateX(-50%) scale(2) rotate(0deg); }
+    20%{ left:50%; bottom:95px; transform:translateX(-50%) scale(2.1) rotate(-8deg); }
+    60%{ left:50%; bottom:95px; transform:translateX(-50%) scale(2.1) rotate(8deg); }
+  }
+  .overlay-runner{
+    width:22px;height:32px;
+    margin:0 auto 10px;
+    transform:scale(1.6);
+  }
+  .confetti-piece{
+    position:absolute;
+    top:-16px;
+    width:8px;height:14px;
+    border-radius:2px;
+    animation:confettiFall 1.8s ease-in forwards;
+  }
+  @keyframes confettiFall{
+    0%{ transform:translateY(0) rotate(0deg); opacity:1; }
+    100%{ transform:translateY(200px) rotate(360deg); opacity:0; }
+  }
+  .cinematic-label.win{color:var(--gold);}
+  .cinematic-label.jump{color:var(--teal);}
+  .cinematic-label.fall{color:var(--crack);}
+
   @media (max-width:380px){
     h1{font-size:28px;}
     .question{font-size:36px;}
@@ -271,10 +601,11 @@
 <div class="stage">
   <header>
     <h1>EL PUENTE DE LAS <span>TABLAS</span></h1>
-    <div class="subtitle">Cruza el puente antes de perder las 5 vidas</div>
+    <div class="subtitle">Cruza todos los puentes sin quedarte sin vidas</div>
   </header>
 
   <div class="lives" id="lives"></div>
+  <div class="score-tag" id="scoreTag">Puntos: 0</div>
   <div class="level-tag" id="levelTag"></div>
 
   <div class="bridge-wrap">
@@ -293,21 +624,37 @@
   <div class="overlay show" id="startOverlay">
     <div class="symbol">⭘ △ ▢</div>
     <h2>¿LISTO PARA JUGAR?</h2>
-    <p>Cruzarás 9 puentes (tablas del 2 al 10), cada uno en orden y luego desordenado.<br>Tienes 5 vidas por puente. ¡Un error te cuesta una vida!</p>
+    <p>Cruzarás 9 puentes (tablas del 2 al 10), cada uno en orden y luego desordenado.<br>
+    Empiezas con <b>3 vidas</b> (hasta un máximo de 5). Un error resta 1 vida y 1 punto.<br>
+    Cruza un puente sin fallar ni una y ganas <b>1 vida extra</b>. ¡Acertar suma 3 puntos!</p>
     <button class="btn" onclick="startGame()">Comenzar</button>
+    <button class="btn teal" style="margin-top:10px" onclick="showLeaderboardFromStart()">Ver puntuaciones anteriores</button>
   </div>
 
-  <!-- Overlay: game over -->
+  <!-- Overlay: estudia la tabla (preámbulo) -->
+  <div class="overlay" id="studyOverlay">
+    <div class="symbol">📖</div>
+    <h2 id="studyTitle" style="color:var(--gold)">TABLA DEL 2</h2>
+    <p style="margin-bottom:10px">Repásala antes de cruzar el puente</p>
+    <div class="study-grid" id="studyGrid"></div>
+    <button class="btn gold" onclick="finishStudy()">Empezar a cruzar</button>
+  </div>
+
+  <!-- Overlay: game over (fin del juego, se perdieron todas las vidas) -->
   <div class="overlay" id="gameOverOverlay">
     <div class="symbol">✕</div>
     <h2 style="color:var(--crack)">¡TE QUEDASTE SIN VIDAS!</h2>
     <p id="gameOverText"></p>
-    <button class="btn" onclick="retryLevel()">Reintentar puente</button>
+    <form class="name-form" onsubmit="event.preventDefault(); submitScore(false);">
+      <input type="text" id="gameOverNameInput" maxlength="16" placeholder="Tu nombre">
+    </form>
+    <button class="btn" onclick="submitScore(false)">Guardar puntaje y ver ranking</button>
   </div>
 
   <!-- Overlay: nivel completado -->
   <div class="overlay" id="levelCompleteOverlay">
     <div class="symbol">✓</div>
+    <div class="overlay-runner" id="levelCompleteRunnerHolder"></div>
     <h2 style="color:var(--teal)">¡PUENTE CRUZADO!</h2>
     <p id="levelCompleteText"></p>
     <button class="btn teal" onclick="nextLevel()">Siguiente puente</button>
@@ -316,9 +663,27 @@
   <!-- Overlay: victoria final -->
   <div class="overlay" id="winOverlay">
     <div class="symbol">👑</div>
+    <div class="overlay-runner" id="winRunnerHolder"></div>
     <h2 style="color:var(--gold)">¡GANASTE EL JUEGO DEL CALAMAR!</h2>
-    <p>Cruzaste los 9 puentes, del 2 al 10, en orden y desordenados. ¡Eres un maestro de las tablas!</p>
-    <button class="btn gold" onclick="restartAll()">Jugar de nuevo</button>
+    <p id="winText">Cruzaste los 9 puentes, del 2 al 10, en orden y desordenados. ¡Eres un maestro de las tablas!</p>
+    <form class="name-form" onsubmit="event.preventDefault(); submitScore(true);">
+      <input type="text" id="winNameInput" maxlength="16" placeholder="Tu nombre">
+    </form>
+    <button class="btn gold" onclick="submitScore(true)">Guardar puntaje y ver ranking</button>
+  </div>
+
+  <!-- Overlay: tabla de puntuaciones -->
+  <div class="overlay" id="leaderboardOverlay">
+    <div class="symbol">🏆</div>
+    <h2 style="color:var(--gold)">TABLA DE PUNTUACIONES</h2>
+    <ol class="leaderboard-list" id="leaderboardList"></ol>
+    <button class="btn gold" onclick="restartFromLeaderboard()">Volver al inicio</button>
+  </div>
+
+  <!-- Overlay: cinemática de salto / caída del personaje -->
+  <div class="cinematic" id="cinematicOverlay">
+    <div class="cinematic-stage" id="cinematicRunnerHolder"></div>
+    <div class="cinematic-label" id="cinematicLabel"></div>
   </div>
 </div>
 
@@ -333,8 +698,14 @@ TABLES.forEach(t=>{
 let levelIndex = 0;
 let sequence = [];
 let step = 0;
-let lives = 5;
+let lives = 3;
 let locked = false;
+let rivals = [0, 0];
+let score = 0;
+let mistakesThisLevel = 0;
+let lastReachedLabel = '';
+const MAX_LIVES = 5;
+const LEADERBOARD_KEY = 'puenteCalamarLeaderboard';
 
 function shuffle(arr){
   const a = [...arr];
@@ -351,15 +722,27 @@ function buildSequence(){
   sequence = level.mode === 'orden' ? base : shuffle(base);
 }
 
+function heartSVG(filled){
+  const fill = filled ? 'var(--pink)' : 'none';
+  const stroke = filled ? 'var(--pink)' : 'var(--muted)';
+  return '<svg viewBox="0 0 24 24" fill="'+fill+'" stroke="'+stroke+'" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round">' +
+    '<path d="M12 21s-7.5-4.7-10-9.3C0.3 8 1.8 4 5.6 3.2 8 2.7 10 4 12 6.5 14 4 16 2.7 18.4 3.2 22.2 4 23.7 8 22 11.7 19.5 16.3 12 21 12 21z"/>' +
+    '</svg>';
+}
+
 function renderLives(){
   const el = document.getElementById('lives');
   el.innerHTML = '';
-  for(let i=0;i<5;i++){
+  for(let i=0;i<MAX_LIVES;i++){
     const d = document.createElement('div');
     d.className = 'life' + (i < lives ? '' : ' lost');
-    d.textContent = i < lives ? '●' : '✕';
+    d.innerHTML = heartSVG(i < lives);
     el.appendChild(d);
   }
+}
+
+function renderScore(){
+  document.getElementById('scoreTag').textContent = `Puntos: ${score}`;
 }
 
 function renderLevelTag(){
@@ -370,6 +753,110 @@ function renderLevelTag(){
     `Nivel ${levelIndex+1}/${LEVELS.length} · Paso ${Math.min(step+1,10)}/10`;
 }
 
+function makeRunnerEl(){
+  const runner = document.createElement('div');
+  runner.className = 'runner';
+  runner.innerHTML =
+    '<div class="r-head"></div>' +
+    '<div class="r-body"></div>' +
+    '<div class="r-arm left"></div>' +
+    '<div class="r-arm right"></div>' +
+    '<div class="r-leg left"></div>' +
+    '<div class="r-leg right"></div>';
+  return runner;
+}
+
+let audioCtx = null;
+function getAudioCtx(){
+  if(!audioCtx){
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if(audioCtx.state === 'suspended'){
+    audioCtx.resume();
+  }
+  return audioCtx;
+}
+
+function playTone(freq, duration, type, delay, gainVal){
+  const ctx = getAudioCtx();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type || 'sine';
+  osc.frequency.value = freq;
+  const startTime = ctx.currentTime + (delay || 0);
+  gain.gain.setValueAtTime(gainVal || 0.15, startTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(startTime);
+  osc.stop(startTime + duration + 0.02);
+}
+
+function playCorrectSound(){
+  playTone(523.25, 0.12, 'triangle', 0, 0.18);
+  playTone(659.25, 0.12, 'triangle', 0.1, 0.18);
+  playTone(783.99, 0.18, 'triangle', 0.2, 0.18);
+}
+
+function playVictoryMusic(){
+  const notes = [523.25, 659.25, 783.99, 1046.5, 783.99, 1046.5];
+  notes.forEach((freq, i)=>{
+    playTone(freq, 0.22, 'square', i * 0.15, 0.15);
+  });
+}
+
+function speakQuestion(text){
+  if(!('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = 'es-ES';
+  utter.rate = 0.9;
+  utter.pitch = 1.1;
+  window.speechSynthesis.speak(utter);
+}
+
+function showCinematic(type){
+  const overlay = document.getElementById('cinematicOverlay');
+  const holder = document.getElementById('cinematicRunnerHolder');
+  const label = document.getElementById('cinematicLabel');
+  holder.innerHTML = '';
+
+  if(type === 'win'){
+    const colors = ['var(--pink)','var(--teal)','var(--gold)'];
+    for(let i=0;i<24;i++){
+      const c = document.createElement('div');
+      c.className = 'confetti-piece';
+      c.style.left = (5 + Math.random()*90) + '%';
+      c.style.background = colors[i % colors.length];
+      c.style.animationDelay = (Math.random()*2.2) + 's';
+      holder.appendChild(c);
+    }
+  } else {
+    const tileA = document.createElement('div');
+    tileA.className = 'cine-tile a';
+    holder.appendChild(tileA);
+
+    const tileB = document.createElement('div');
+    tileB.className = 'cine-tile b' + (type === 'fall' ? ' breaking' : '');
+    holder.appendChild(tileB);
+  }
+
+  const wrap = document.createElement('div');
+  wrap.className = 'runner-wrap ' + type;
+  wrap.appendChild(makeRunnerEl());
+  holder.appendChild(wrap);
+
+  label.textContent = type === 'jump' ? '¡SALTÓ A LA SIGUIENTE TABLA!'
+    : type === 'fall' ? '¡LA TABLA SE ROMPIÓ!'
+    : '¡VICTORIA!';
+  label.className = 'cinematic-label ' + type;
+  overlay.classList.add('show');
+  const duration = type === 'jump' ? 900 : type === 'fall' ? 1000 : 3900;
+  setTimeout(()=>{
+    overlay.classList.remove('show');
+  }, duration);
+}
+
 function renderBridge(){
   const bridge = document.getElementById('bridge');
   bridge.innerHTML = '';
@@ -377,11 +864,10 @@ function renderBridge(){
     const t = document.createElement('div');
     t.className = 'tile' + (i < step ? ' done' : '') + (i === step ? ' current' : '');
     t.id = 'tile-'+i;
-    t.textContent = i+1;
     if(i === step){
       const token = document.createElement('div');
       token.className = 'token';
-      token.textContent = '🏃';
+      token.appendChild(makeRunnerEl());
       t.appendChild(token);
     }
     bridge.appendChild(t);
@@ -392,9 +878,16 @@ function renderBridge(){
   }
 }
 
+function advanceRivals(){
+  rivals = rivals.map(pos=>{
+    if(pos >= 9) return pos;
+    return Math.random() < 0.7 ? pos + 1 : pos;
+  });
+}
+
 function buildOptions(correct){
   const opts = new Set([correct]);
-  while(opts.size < 4){
+  while(opts.size < 5){
     const delta = Math.floor(Math.random()*10) - 5;
     let candidate = correct + delta * (LEVELS[levelIndex].table || 1);
     if(candidate <= 0) candidate = correct + Math.floor(Math.random()*20) + 1;
@@ -410,6 +903,7 @@ function renderQuestion(){
   document.getElementById('question').innerHTML =
     `${level.table} <span class="op">×</span> ${n}`;
   document.getElementById('hint').textContent = 'Elige la respuesta correcta para avanzar';
+  speakQuestion(`${level.table} por ${n}`);
 
   const optsWrap = document.getElementById('options');
   optsWrap.innerHTML = '';
@@ -434,6 +928,11 @@ function handleAnswer(chosen, correct, btnEl){
   if(chosen === correct){
     btnEl.classList.add('correct');
     if(token) token.classList.add('jump');
+    showCinematic('jump');
+    playCorrectSound();
+    score += 3;
+    renderScore();
+    advanceRivals();
     setTimeout(()=>{
       step++;
       if(step >= 10){
@@ -450,8 +949,12 @@ function handleAnswer(chosen, correct, btnEl){
     const tile = document.getElementById('tile-'+step);
     if(tile) tile.classList.add('crack');
     if(token) token.classList.add('fall');
+    showCinematic('fall');
     lives--;
+    score -= 1;
+    mistakesThisLevel++;
     renderLives();
+    renderScore();
     setTimeout(()=>{
       if(tile) tile.classList.remove('crack');
       if(token) token.classList.remove('fall');
@@ -465,66 +968,167 @@ function handleAnswer(chosen, correct, btnEl){
   renderLevelTag();
 }
 
-function showGameOver(){
-  const level = LEVELS[levelIndex];
-  document.getElementById('gameOverText').textContent =
-    `Te quedaste sin vidas en la tabla del ${level.table} (${level.mode}). ¡Vuelve a intentarlo!`;
-  document.getElementById('gameOverOverlay').classList.add('show');
+function renderStudyGrid(table){
+  document.getElementById('studyTitle').textContent = `TABLA DEL ${table}`;
+  const grid = document.getElementById('studyGrid');
+  grid.innerHTML = '';
+  for(let n=1;n<=10;n++){
+    const row = document.createElement('div');
+    row.className = 'study-row';
+    row.style.animationDelay = (n*0.04)+'s';
+    row.innerHTML = `${table} × ${n} = <span>${table*n}</span>`;
+    grid.appendChild(row);
+  }
 }
 
-function retryLevel(){
-  document.getElementById('gameOverOverlay').classList.remove('show');
-  lives = 5;
+let pendingLevelStart = null;
+
+function beginLevel(){
   step = 0;
+  rivals = [0, 0];
+  mistakesThisLevel = 0;
   buildSequence();
   renderLives();
+  renderScore();
   renderBridge();
   renderQuestion();
   renderLevelTag();
 }
 
+function showStudyThenBegin(){
+  const level = LEVELS[levelIndex];
+  if(level.mode === 'orden'){
+    renderStudyGrid(level.table);
+    document.getElementById('studyOverlay').classList.add('show');
+    pendingLevelStart = beginLevel;
+  } else {
+    beginLevel();
+  }
+}
+
+function finishStudy(){
+  document.getElementById('studyOverlay').classList.remove('show');
+  if(pendingLevelStart){
+    pendingLevelStart();
+    pendingLevelStart = null;
+  }
+}
+
+function showGameOver(){
+  const level = LEVELS[levelIndex];
+  lastReachedLabel = `Tabla del ${level.table} (${level.mode})`;
+  document.getElementById('gameOverText').textContent =
+    `Te quedaste sin vidas en la tabla del ${level.table} (${level.mode}). Puntaje final: ${score} puntos.`;
+  document.getElementById('gameOverOverlay').classList.add('show');
+}
+
 function showLevelComplete(){
   const level = LEVELS[levelIndex];
+  const gotBonus = mistakesThisLevel === 0 && lives < MAX_LIVES;
+  showCinematic('win');
+  playVictoryMusic();
+  if(gotBonus){
+    lives = Math.min(MAX_LIVES, lives + 1);
+    renderLives();
+  }
   if(levelIndex === LEVELS.length - 1){
+    lastReachedLabel = 'Completó todas las tablas (2-10)';
+    document.getElementById('winText').textContent =
+      `Cruzaste los 9 puentes, del 2 al 10, en orden y desordenados. Puntaje final: ${score} puntos. ¡Eres un maestro de las tablas!`;
+    const winHolder = document.getElementById('winRunnerHolder');
+    winHolder.innerHTML = '';
+    winHolder.appendChild(makeRunnerEl());
     document.getElementById('winOverlay').classList.add('show');
     return;
   }
-  document.getElementById('levelCompleteText').textContent =
-    `Cruzaste la tabla del ${level.table} (${level.mode}) con ${lives} ${lives===1?'vida':'vidas'} restantes.`;
+  document.getElementById('levelCompleteText').textContent = gotBonus
+    ? `Cruzaste la tabla del ${level.table} (${level.mode}) sin fallar ni una. ¡Ganaste 1 vida extra! Ahora tienes ${lives} ${lives===1?'vida':'vidas'}.`
+    : `Cruzaste la tabla del ${level.table} (${level.mode}) con ${lives} ${lives===1?'vida':'vidas'} restantes.`;
+  const lcHolder = document.getElementById('levelCompleteRunnerHolder');
+  lcHolder.innerHTML = '';
+  lcHolder.appendChild(makeRunnerEl());
   document.getElementById('levelCompleteOverlay').classList.add('show');
 }
 
 function nextLevel(){
   document.getElementById('levelCompleteOverlay').classList.remove('show');
   levelIndex++;
-  lives = 5;
-  step = 0;
-  buildSequence();
-  renderLives();
-  renderBridge();
-  renderQuestion();
-  renderLevelTag();
+  showStudyThenBegin();
 }
 
 function startGame(){
+  getAudioCtx();
   document.getElementById('startOverlay').classList.remove('show');
   levelIndex = 0;
-  lives = 5;
-  step = 0;
-  buildSequence();
-  renderLives();
-  renderBridge();
-  renderQuestion();
-  renderLevelTag();
+  lives = 3;
+  score = 0;
+  showStudyThenBegin();
 }
 
-function restartAll(){
-  document.getElementById('winOverlay').classList.remove('show');
+function loadLeaderboard(){
+  try{
+    const raw = localStorage.getItem(LEADERBOARD_KEY);
+    return raw ? JSON.parse(raw) : [];
+  }catch(e){
+    return [];
+  }
+}
+
+function saveLeaderboard(list){
+  try{
+    localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(list));
+  }catch(e){
+    // almacenamiento no disponible; el ranking solo vivirá en esta sesión
+  }
+}
+
+function renderLeaderboard(list){
+  const ol = document.getElementById('leaderboardList');
+  ol.innerHTML = '';
+  if(list.length === 0){
+    const li = document.createElement('li');
+    li.textContent = 'Aún no hay puntajes guardados.';
+    ol.appendChild(li);
+    return;
+  }
+  list.forEach((entry, i)=>{
+    const li = document.createElement('li');
+    const reachedHtml = entry.reached ? `<span class="lb-reached">${entry.reached}</span>` : '';
+    li.innerHTML = `<span class="lb-info"><span>${i+1}. ${entry.name}</span>${reachedHtml}</span><span>${entry.score} pts</span>`;
+    ol.appendChild(li);
+  });
+}
+
+function submitScore(isWin){
+  const inputId = isWin ? 'winNameInput' : 'gameOverNameInput';
+  const raw = document.getElementById(inputId).value.trim();
+  const name = raw ? raw.slice(0,16) : 'Jugador';
+
+  const list = loadLeaderboard();
+  list.push({name, score, reached:lastReachedLabel, date:new Date().toLocaleDateString()});
+  list.sort((a,b)=>b.score-a.score);
+  const top = list.slice(0,10);
+  saveLeaderboard(top);
+
+  document.getElementById(isWin ? 'winOverlay' : 'gameOverOverlay').classList.remove('show');
+  renderLeaderboard(top);
+  document.getElementById('leaderboardOverlay').classList.add('show');
+}
+
+function restartFromLeaderboard(){
+  document.getElementById('leaderboardOverlay').classList.remove('show');
   document.getElementById('startOverlay').classList.add('show');
+}
+
+function showLeaderboardFromStart(){
+  document.getElementById('startOverlay').classList.remove('show');
+  renderLeaderboard(loadLeaderboard());
+  document.getElementById('leaderboardOverlay').classList.add('show');
 }
 
 // initial paint (idle state behind overlay)
 renderLives();
+renderScore();
 renderLevelTag();
 </script>
 

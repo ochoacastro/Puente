@@ -510,6 +510,31 @@
     100%{opacity:1; transform:translateY(0);}
   }
 
+  .table-select-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    width:100%;
+    max-width:320px;
+    margin:0 auto 20px;
+  }
+  .table-select-btn{
+    background:#1f1f2c;
+    border:2px solid rgba(255,255,255,0.08);
+    border-radius:10px;
+    padding:12px 6px;
+    font-family:'Poppins',sans-serif;
+    font-weight:700;
+    font-size:14px;
+    color:var(--text);
+    cursor:pointer;
+    transition:transform .1s ease, border-color .15s ease;
+  }
+  .table-select-btn:active{
+    transform:scale(.95);
+    border-color:var(--teal);
+  }
+
   .cinematic{
     position:absolute;
     inset:0;
@@ -645,11 +670,22 @@
   <div class="overlay show" id="startOverlay">
     <div class="symbol">⭘ △ ▢</div>
     <h2>¿LISTO PARA JUGAR?</h2>
-    <p>Cruzarás 9 puentes (tablas del 2 al 10), cada uno en orden y luego desordenado.<br>
+    <p>Cruzarás 10 puentes (tablas del 1 al 10), cada uno en orden y luego desordenado.<br>
     Empiezas con <b>3 vidas</b> (hasta un máximo de 5). Un error resta 1 vida y 1 punto.<br>
     Cruza un puente sin fallar ni una y ganas <b>1 vida extra</b>. ¡Acertar suma 3 puntos!</p>
     <button class="btn" onclick="startGame()">Comenzar</button>
+    <button class="btn teal" style="margin-top:10px" onclick="openTableSelectFromStart()">Practicar una tabla</button>
     <button class="btn teal" style="margin-top:10px" onclick="showLeaderboardFromStart()">Ver puntuaciones anteriores</button>
+    <button class="btn gold" style="margin-top:10px" onclick="showRecordsFromStart()">Ver récords de tiempo</button>
+  </div>
+
+  <!-- Overlay: elegir tabla para practicar -->
+  <div class="overlay" id="tableSelectOverlay">
+    <div class="symbol">📋</div>
+    <h2 style="color:var(--teal)">ELIGE UNA TABLA</h2>
+    <p style="margin-bottom:10px">Practícala en orden y luego desordenada</p>
+    <div class="table-select-grid" id="tableSelectGrid"></div>
+    <button class="btn" onclick="backToStartFromTableSelect()">Volver</button>
   </div>
 
   <!-- Overlay: estudia la tabla (preámbulo) -->
@@ -678,7 +714,13 @@
     <div class="overlay-runner" id="levelCompleteRunnerHolder"></div>
     <h2 style="color:var(--teal)">¡PUENTE CRUZADO!</h2>
     <p id="levelCompleteText"></p>
-    <button class="btn teal" onclick="nextLevel()">Siguiente puente</button>
+    <form class="name-form" onsubmit="event.preventDefault(); exitFromLevelComplete();">
+      <input type="text" id="levelCompleteNameInput" maxlength="16" placeholder="Tu nombre (si vas a salir)">
+    </form>
+    <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:6px;">
+      <button class="btn teal" id="levelCompleteNextBtn" onclick="nextLevel()">Siguiente puente</button>
+      <button class="btn" onclick="exitFromLevelComplete()">Salir</button>
+    </div>
   </div>
 
   <!-- Overlay: victoria final -->
@@ -686,7 +728,7 @@
     <div class="symbol">👑</div>
     <div class="overlay-runner" id="winRunnerHolder"></div>
     <h2 style="color:var(--gold)">¡GANASTE EL JUEGO DEL CALAMAR!</h2>
-    <p id="winText">Cruzaste los 9 puentes, del 2 al 10, en orden y desordenados. ¡Eres un maestro de las tablas!</p>
+    <p id="winText">Cruzaste los 10 puentes, del 1 al 10, en orden y desordenados. ¡Eres un maestro de las tablas!</p>
     <form class="name-form" onsubmit="event.preventDefault(); submitScore(true);">
       <input type="text" id="winNameInput" maxlength="16" placeholder="Tu nombre">
     </form>
@@ -701,6 +743,14 @@
     <button class="btn gold" onclick="restartFromLeaderboard()">Volver al inicio</button>
   </div>
 
+  <!-- Overlay: tabla de récords de tiempo -->
+  <div class="overlay" id="recordsOverlay">
+    <div class="symbol">⏱️</div>
+    <h2 style="color:var(--gold)">TABLA DE RÉCORDS</h2>
+    <ol class="leaderboard-list" id="recordsList"></ol>
+    <button class="btn gold" onclick="restartFromRecords()">Volver al inicio</button>
+  </div>
+
   <!-- Overlay: cinemática de salto / caída del personaje -->
   <div class="cinematic" id="cinematicOverlay">
     <div class="cinematic-stage" id="cinematicRunnerHolder"></div>
@@ -711,14 +761,17 @@
 <script>
 document.addEventListener('contextmenu', e => e.preventDefault());
 
-const TABLES = [2,3,4,5,6,7,8,9,10];
-const LEVELS = [];
+const TABLES = [1,2,3,4,5,6,7,8,9,10];
+let LEVELS = [];
 TABLES.forEach(t=>{
   LEVELS.push({table:t, mode:'orden'});
   LEVELS.push({table:t, mode:'desorden'});
 });
+const FULL_LEVELS = LEVELS.slice();
 
 let levelIndex = 0;
+let isPracticeMode = false;
+let practiceTable = null;
 let sequence = [];
 let step = 0;
 let lives = 3;
@@ -729,6 +782,10 @@ let mistakesThisLevel = 0;
 let lastReachedLabel = '';
 const MAX_LIVES = 5;
 const LEADERBOARD_KEY = 'puenteCalamarLeaderboard';
+const TABLE_RECORDS_KEY = 'puenteCalamarRecordsTablas';
+const TOTAL_RECORD_KEY = 'puenteCalamarRecordTotal';
+let levelStartTime = 0;
+let gameStartTime = 0;
 
 function shuffle(arr){
   const a = [...arr];
@@ -1021,6 +1078,7 @@ function beginLevel(){
   step = 0;
   rivals = [0, 0];
   mistakesThisLevel = 0;
+  levelStartTime = Date.now();
   buildSequence();
   renderLives();
   renderScore();
@@ -1060,44 +1118,139 @@ function showGameOver(){
 function showLevelComplete(){
   const level = LEVELS[levelIndex];
   const gotBonus = mistakesThisLevel === 0 && lives < MAX_LIVES;
+  const elapsedLevel = (Date.now() - levelStartTime) / 1000;
+  const tableResult = saveTableRecordIfBetter(level.table, level.mode, elapsedLevel);
   showCinematic('win');
   playVictoryMusic();
   if(gotBonus){
     lives = Math.min(MAX_LIVES, lives + 1);
     renderLives();
   }
-  if(levelIndex === LEVELS.length - 1){
-    lastReachedLabel = 'Completó todas las tablas (2-10)';
+  const nextLvl = LEVELS[levelIndex + 1];
+  const isFirstHalfOfTable = level.mode === 'orden' && nextLvl && nextLvl.table === level.table && nextLvl.mode === 'desorden';
+  if(isFirstHalfOfTable){
+    lastReachedLabel = `Tabla del ${level.table} (${level.mode})`;
+    setTimeout(()=>{ nextLevel(); }, 1600);
+    return;
+  }
+  if(levelIndex === LEVELS.length - 1 && !isPracticeMode){
+    const elapsedTotal = (Date.now() - gameStartTime) / 1000;
+    const totalResult = saveTotalRecordIfBetter(elapsedTotal);
+    lastReachedLabel = 'Completó todas las tablas (1-10)';
     document.getElementById('winText').textContent =
-      `Cruzaste los 9 puentes, del 2 al 10, en orden y desordenados. Puntaje final: ${score} puntos. ¡Eres un maestro de las tablas!`;
+      `Cruzaste los 10 puentes, del 1 al 10, en orden y desordenados, en ${formatTime(elapsedTotal)}. ` +
+      (totalResult.isNew
+        ? `¡Nuevo récord total del juego!`
+        : `Récord total del juego: ${formatTime(totalResult.best)}.`) +
+      ` Puntaje final: ${score} puntos. ¡Eres un maestro de las tablas!`;
     const winHolder = document.getElementById('winRunnerHolder');
     winHolder.innerHTML = '';
     winHolder.appendChild(makeRunnerEl());
     document.getElementById('winOverlay').classList.add('show');
     return;
   }
-  document.getElementById('levelCompleteText').textContent = gotBonus
-    ? `Cruzaste la tabla del ${level.table} (${level.mode}) sin fallar ni una. ¡Ganaste 1 vida extra! Ahora tienes ${lives} ${lives===1?'vida':'vidas'}.`
-    : `Cruzaste la tabla del ${level.table} (${level.mode}) con ${lives} ${lives===1?'vida':'vidas'} restantes.`;
+  document.getElementById('levelCompleteText').textContent =
+    (gotBonus
+      ? `Cruzaste la tabla del ${level.table} (${level.mode}) sin fallar ni una. ¡Ganaste 1 vida extra! Ahora tienes ${lives} ${lives===1?'vida':'vidas'}. `
+      : `Cruzaste la tabla del ${level.table} (${level.mode}) con ${lives} ${lives===1?'vida':'vidas'} restantes. `) +
+    `Tiempo: ${formatTime(elapsedLevel)}. ` +
+    (tableResult.isNew ? '¡Nuevo récord de esta tabla!' : `Récord de esta tabla: ${formatTime(tableResult.best)}.`);
+  lastReachedLabel = `Tabla del ${level.table} (${level.mode})`;
   const lcHolder = document.getElementById('levelCompleteRunnerHolder');
   lcHolder.innerHTML = '';
   lcHolder.appendChild(makeRunnerEl());
+  const nextBtn = document.getElementById('levelCompleteNextBtn');
+  if(isPracticeMode && levelIndex === LEVELS.length - 1){
+    nextBtn.textContent = 'Volver a las tablas';
+  } else {
+    nextBtn.textContent = 'Siguiente puente';
+  }
   document.getElementById('levelCompleteOverlay').classList.add('show');
 }
 
 function nextLevel(){
   document.getElementById('levelCompleteOverlay').classList.remove('show');
+  if(isPracticeMode && levelIndex === LEVELS.length - 1){
+    isPracticeMode = false;
+    practiceTable = null;
+    showTableSelect();
+    return;
+  }
   levelIndex++;
   showStudyThenBegin();
+}
+
+function exitFromLevelComplete(){
+  const raw = document.getElementById('levelCompleteNameInput').value.trim();
+  const name = raw ? raw.slice(0,16) : 'Jugador';
+  const list = loadLeaderboard();
+  list.push({name, score, reached:lastReachedLabel, date:new Date().toLocaleDateString()});
+  list.sort((a,b)=>b.score-a.score);
+  const top = list.slice(0,10);
+  saveLeaderboard(top);
+
+  document.getElementById('levelCompleteOverlay').classList.remove('show');
+  renderLeaderboard(top);
+  document.getElementById('leaderboardOverlay').classList.add('show');
 }
 
 function startGame(){
   getAudioCtx();
   document.getElementById('startOverlay').classList.remove('show');
+  isPracticeMode = false;
+  practiceTable = null;
+  LEVELS = FULL_LEVELS;
   levelIndex = 0;
   lives = 3;
   score = 0;
+  gameStartTime = Date.now();
   showStudyThenBegin();
+}
+
+function formatTime(seconds){
+  const total = Math.max(0, Math.round(seconds));
+  const m = Math.floor(total/60);
+  const s = total%60;
+  return `${m}:${s.toString().padStart(2,'0')}`;
+}
+
+function loadTableRecords(){
+  try{
+    const raw = localStorage.getItem(TABLE_RECORDS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  }catch(e){
+    return {};
+  }
+}
+
+function saveTableRecordIfBetter(table, mode, seconds){
+  const records = loadTableRecords();
+  const key = table+'_'+mode;
+  const prevBest = records[key];
+  const isNew = prevBest === undefined || seconds < prevBest;
+  if(isNew){
+    records[key] = seconds;
+    try{ localStorage.setItem(TABLE_RECORDS_KEY, JSON.stringify(records)); }catch(e){}
+  }
+  return { isNew, best: isNew ? seconds : prevBest };
+}
+
+function getTotalRecord(){
+  try{
+    const raw = localStorage.getItem(TOTAL_RECORD_KEY);
+    return raw ? parseFloat(raw) : null;
+  }catch(e){
+    return null;
+  }
+}
+
+function saveTotalRecordIfBetter(seconds){
+  const prevBest = getTotalRecord();
+  const isNew = prevBest === null || seconds < prevBest;
+  if(isNew){
+    try{ localStorage.setItem(TOTAL_RECORD_KEY, seconds); }catch(e){}
+  }
+  return { isNew, best: isNew ? seconds : prevBest };
 }
 
 function loadLeaderboard(){
@@ -1159,6 +1312,89 @@ function showLeaderboardFromStart(){
   document.getElementById('startOverlay').classList.remove('show');
   renderLeaderboard(loadLeaderboard());
   document.getElementById('leaderboardOverlay').classList.add('show');
+}
+
+function renderRecordsList(){
+  const ol = document.getElementById('recordsList');
+  ol.innerHTML = '';
+  const records = loadTableRecords();
+  const totalBest = getTotalRecord();
+
+  let any = false;
+  TABLES.forEach(table=>{
+    ['orden','desorden'].forEach(mode=>{
+      const seconds = records[table+'_'+mode];
+      if(seconds !== undefined){
+        any = true;
+        const li = document.createElement('li');
+        li.innerHTML = `<span class="lb-info"><span>Tabla del ${table} (${mode})</span></span><span>${formatTime(seconds)}</span>`;
+        ol.appendChild(li);
+      }
+    });
+  });
+
+  if(!any){
+    const li = document.createElement('li');
+    li.textContent = 'Aún no hay récords guardados.';
+    ol.appendChild(li);
+  }
+
+  if(totalBest !== null){
+    const li = document.createElement('li');
+    li.innerHTML = `<span class="lb-info"><span>🏁 Juego completo</span></span><span>${formatTime(totalBest)}</span>`;
+    ol.appendChild(li);
+  }
+}
+
+function showRecordsFromStart(){
+  document.getElementById('startOverlay').classList.remove('show');
+  renderRecordsList();
+  document.getElementById('recordsOverlay').classList.add('show');
+}
+
+function restartFromRecords(){
+  document.getElementById('recordsOverlay').classList.remove('show');
+  document.getElementById('startOverlay').classList.add('show');
+}
+
+function renderTableSelectGrid(){
+  const grid = document.getElementById('tableSelectGrid');
+  grid.innerHTML = '';
+  TABLES.forEach(table=>{
+    const btn = document.createElement('button');
+    btn.className = 'table-select-btn';
+    btn.textContent = `Tabla del ${table}`;
+    btn.onclick = () => startPracticeTable(table);
+    grid.appendChild(btn);
+  });
+}
+
+function showTableSelect(){
+  renderTableSelectGrid();
+  document.getElementById('tableSelectOverlay').classList.add('show');
+}
+
+function openTableSelectFromStart(){
+  document.getElementById('startOverlay').classList.remove('show');
+  showTableSelect();
+}
+
+function backToStartFromTableSelect(){
+  document.getElementById('tableSelectOverlay').classList.remove('show');
+  document.getElementById('startOverlay').classList.add('show');
+}
+
+function startPracticeTable(table){
+  getAudioCtx();
+  document.getElementById('tableSelectOverlay').classList.remove('show');
+  isPracticeMode = true;
+  practiceTable = table;
+  LEVELS = [{table:table, mode:'orden'}, {table:table, mode:'desorden'}];
+  levelIndex = 0;
+  lives = 3;
+  score = 0;
+  gameStartTime = Date.now();
+  showStudyThenBegin();
 }
 
 // initial paint (idle state behind overlay)

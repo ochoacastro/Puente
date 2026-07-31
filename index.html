@@ -825,8 +825,7 @@
   }
   .admin-user-row{
     display:flex;
-    justify-content:space-between;
-    align-items:center;
+    flex-direction:column;
     gap:8px;
     background:#1f1f2c;
     border:1px solid rgba(255,255,255,0.07);
@@ -1988,12 +1987,19 @@ async function renderAdminUserList(){
       row.innerHTML =
         '<div class="admin-user-info">' +
           '<strong>' + info.nombre + '</strong>' +
+          '<span class="admin-user-status" style="word-break:break-all">' + link + '</span>' +
         '</div>' +
         '<div class="admin-user-actions">' +
           '<button class="btn teal small" type="button">Copiar link</button>' +
           '<button class="btn small" type="button" style="background:var(--crack)">Eliminar</button>' +
         '</div>';
-      row.querySelector('.btn.teal').onclick = () => copyUserLink(link);
+      const copyBtn = row.querySelector('.btn.teal');
+      copyBtn.onclick = () => {
+        copyUserLink(link);
+        const original = copyBtn.textContent;
+        copyBtn.textContent = '¡Copiado!';
+        setTimeout(()=>{ copyBtn.textContent = original; }, 1500);
+      };
       row.querySelector('.btn.small:last-child').onclick = () => deleteUser(id, info.nombre);
       wrap.appendChild(row);
     });

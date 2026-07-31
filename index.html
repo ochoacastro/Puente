@@ -6,6 +6,8 @@
 <title>El Puente de las Tablas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <style>
   :root{
     --bg:#0a0a0f;
@@ -406,6 +408,23 @@
   .btn.gold{background:var(--gold);color:#1a1a1a;}
   .btn:active{transform:scale(.96);}
 
+  .menu-btn{
+    position:absolute;
+    top:14px;
+    left:14px;
+    background:rgba(255,255,255,0.08);
+    color:var(--muted);
+    border:1px solid rgba(255,255,255,0.12);
+    padding:6px 14px;
+    border-radius:20px;
+    font-size:12px;
+    font-weight:600;
+    letter-spacing:.3px;
+    cursor:pointer;
+    z-index:5;
+  }
+  .menu-btn:active{transform:scale(.96);}
+
   .symbol{font-size:52px;margin-bottom:6px;}
 
   footer.progress{
@@ -658,6 +677,127 @@
   .cinematic-label.jump{color:var(--teal);}
   .cinematic-label.fall{color:var(--crack);}
 
+  .access-link{
+    margin-top:18px;
+    background:none;
+    border:none;
+    color:var(--muted);
+    font-size:12px;
+    text-decoration:underline;
+    cursor:pointer;
+  }
+  .master-pass-input{
+    width:100%;
+    max-width:220px;
+    background:#1f1f2c;
+    border:2px solid rgba(255,255,255,0.08);
+    border-radius:10px;
+    color:var(--text);
+    font-family:'Poppins',sans-serif;
+    font-size:15px;
+    padding:10px 12px;
+    margin-bottom:14px;
+    text-align:center;
+  }
+  .master-pass-input:focus{ outline:none; border-color:var(--teal); }
+
+  .pattern-pad{
+    position:relative;
+    width:220px;
+    height:220px;
+    margin:0 auto 18px;
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    grid-template-rows:repeat(3,1fr);
+    touch-action:none;
+  }
+  .pattern-dot{
+    width:20px;height:20px;
+    border-radius:50%;
+    border:2px solid var(--muted);
+    background:#1f1f2c;
+    margin:auto;
+    z-index:2;
+    transition:all .15s ease;
+  }
+  .pattern-dot.active{
+    background:var(--teal);
+    border-color:var(--teal);
+    box-shadow:0 0 0 6px rgba(0,210,180,0.15);
+  }
+  .pattern-dot.error{
+    background:var(--crack);
+    border-color:var(--crack);
+  }
+  .pattern-lines{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    z-index:1;
+    pointer-events:none;
+  }
+  .pattern-line{
+    stroke:var(--teal);
+    stroke-width:3;
+    stroke-linecap:round;
+  }
+
+  .admin-panel-body{
+    width:100%;
+    max-width:340px;
+    text-align:left;
+  }
+  .admin-add-row{
+    display:flex;
+    gap:8px;
+    margin-bottom:16px;
+  }
+  .admin-add-row input{
+    flex:1;
+    background:#1f1f2c;
+    border:2px solid rgba(255,255,255,0.08);
+    border-radius:10px;
+    color:var(--text);
+    font-family:'Poppins',sans-serif;
+    font-size:14px;
+    padding:9px 10px;
+  }
+  .admin-user-list{
+    max-height:280px;
+    overflow-y:auto;
+  }
+  .admin-user-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:8px;
+    background:#1f1f2c;
+    border:1px solid rgba(255,255,255,0.07);
+    border-radius:10px;
+    padding:9px 12px;
+    margin-bottom:7px;
+  }
+  .admin-user-info{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    font-size:13px;
+  }
+  .admin-user-status{
+    font-size:11px;
+    color:var(--muted);
+  }
+  .admin-user-actions{
+    display:flex;
+    gap:6px;
+    flex-shrink:0;
+  }
+  .btn.small{
+    padding:7px 12px;
+    font-size:11px;
+  }
+
   @media (max-width:380px){
     h1{font-size:28px;}
     .question{font-size:36px;}
@@ -672,6 +812,7 @@
 <div class="shape square"></div>
 
 <div class="stage">
+  <button class="menu-btn" onclick="goToMenu()">☰ Menú</button>
   <header>
     <h1>EL PUENTE DE LAS <span>TABLAS</span></h1>
     <div class="subtitle">Cruza todos los puentes sin quedarte sin vidas</div>
@@ -694,7 +835,7 @@
   <footer class="progress" id="progressFooter"></footer>
 
   <!-- Overlay: inicio -->
-  <div class="overlay show" id="startOverlay">
+  <div class="overlay" id="startOverlay">
     <div class="symbol">⭘ △ ▢</div>
     <h2>¿LISTO PARA JUGAR?</h2>
     <p>Cruzarás 10 puentes (tablas del 1 al 10), cada uno en orden y luego desordenado.<br>
@@ -729,9 +870,6 @@
     <div class="symbol">✕</div>
     <h2 style="color:var(--crack)">¡TE QUEDASTE SIN VIDAS!</h2>
     <p id="gameOverText"></p>
-    <form class="name-form" onsubmit="event.preventDefault(); submitScore(false);">
-      <input type="text" id="gameOverNameInput" maxlength="16" placeholder="Tu nombre">
-    </form>
     <button class="btn" onclick="submitScore(false)">Guardar puntaje y ver ranking</button>
   </div>
 
@@ -741,9 +879,6 @@
     <div class="overlay-runner" id="levelCompleteRunnerHolder"></div>
     <h2 style="color:var(--teal)">¡PUENTE CRUZADO!</h2>
     <p id="levelCompleteText"></p>
-    <form class="name-form" onsubmit="event.preventDefault(); exitFromLevelComplete();">
-      <input type="text" id="levelCompleteNameInput" maxlength="16" placeholder="Tu nombre (para guardar el récord)">
-    </form>
     <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:6px;">
       <button class="btn teal" id="levelCompleteNextBtn" onclick="nextLevel()">Siguiente puente</button>
       <button class="btn" onclick="exitFromLevelComplete()">Salir</button>
@@ -756,9 +891,6 @@
     <div class="overlay-runner" id="winRunnerHolder"></div>
     <h2 style="color:var(--gold)">¡GANASTE EL JUEGO DEL CALAMAR!</h2>
     <p id="winText">Cruzaste los 10 puentes, del 1 al 10, en orden y desordenados. ¡Eres un maestro de las tablas!</p>
-    <form class="name-form" onsubmit="event.preventDefault(); submitScore(true);">
-      <input type="text" id="winNameInput" maxlength="16" placeholder="Tu nombre">
-    </form>
     <button class="btn gold" onclick="submitScore(true)">Guardar puntaje y ver ranking</button>
   </div>
 
@@ -787,6 +919,50 @@
   <div class="cinematic" id="cinematicOverlay">
     <div class="cinematic-stage" id="cinematicRunnerHolder"></div>
     <div class="cinematic-label" id="cinematicLabel"></div>
+  </div>
+
+  <!-- Overlay: acceso restringido (sin link de usuario válido) -->
+  <div class="overlay" id="accessGateOverlay">
+    <div class="symbol">🔒</div>
+    <h2>ACCESO RESTRINGIDO</h2>
+    <p id="accessGateText">Este juego se usa con tu enlace personal. Pídeselo al administrador.</p>
+    <button class="access-link" onclick="openAdminFromGate()">Soy el administrador</button>
+  </div>
+
+  <!-- Overlay: cargando perfil -->
+  <div class="overlay" id="patternLoadingOverlay">
+    <div class="symbol">⏳</div>
+    <h2>CARGANDO TU PERFIL…</h2>
+  </div>
+
+  <!-- Overlay: panel maestro -->
+  <div class="overlay" id="adminOverlay">
+    <div class="symbol">👤</div>
+    <h2 style="color:var(--teal)">USUARIOS</h2>
+    <div class="admin-panel-body">
+      <div class="admin-add-row">
+        <input type="text" id="newUserNameInput" maxlength="24" placeholder="Nombre del nuevo usuario">
+        <button class="btn teal small" onclick="addNewUser()">Agregar</button>
+      </div>
+      <div class="admin-user-list" id="adminUserList"></div>
+    </div>
+    <button class="btn" style="margin-top:14px" onclick="closeAdminPanel()">Cerrar</button>
+  </div>
+
+  <!-- Overlay: crear patrón (primer ingreso) -->
+  <div class="overlay" id="patternSetupOverlay">
+    <div class="symbol">✳️</div>
+    <h2 id="patternSetupTitle" style="color:var(--gold)">CREA TU PATRÓN</h2>
+    <p id="patternSetupHint"></p>
+    <div class="pattern-pad" id="patternPadSetup"></div>
+  </div>
+
+  <!-- Overlay: ingresar patrón -->
+  <div class="overlay" id="patternLoginOverlay">
+    <div class="symbol">🔐</div>
+    <h2 style="color:var(--teal)">INGRESA TU PATRÓN</h2>
+    <p id="patternLoginHint"></p>
+    <div class="pattern-pad" id="patternPadLogin"></div>
   </div>
 </div>
 
@@ -941,6 +1117,16 @@ function speakStudyRow(table, n){
   window.speechSynthesis.speak(utter);
 }
 
+function speakAnswer(text){
+  if(!('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = 'es-MX';
+  utter.rate = 0.9;
+  utter.pitch = 1.1;
+  window.speechSynthesis.speak(utter);
+}
+
 function showCinematic(type){
   const overlay = document.getElementById('cinematicOverlay');
   const holder = document.getElementById('cinematicRunnerHolder');
@@ -1056,6 +1242,7 @@ function handleAnswer(chosen, correct, btnEl){
     if(token) token.classList.add('jump');
     showCinematic('jump');
     playCorrectSound();
+    speakAnswer(`¡Correcto! ${correct}`);
     score += 3;
     renderScore();
     advanceRivals();
@@ -1076,6 +1263,7 @@ function handleAnswer(chosen, correct, btnEl){
     if(tile) tile.classList.add('crack');
     if(token) token.classList.add('fall');
     showCinematic('fall');
+    speakAnswer(`Incorrecto. ${LEVELS[levelIndex].table} por ${sequence[step]} es ${correct}`);
     lives--;
     score -= 1;
     mistakesThisLevel++;
@@ -1213,8 +1401,7 @@ function showLevelComplete(){
 }
 
 function nextLevel(){
-  const raw = document.getElementById('levelCompleteNameInput').value.trim();
-  const name = raw ? raw.slice(0,16) : 'Jugador';
+  const name = currentUserName || 'Jugador';
   savePendingTableRecord(name);
   document.getElementById('levelCompleteOverlay').classList.remove('show');
   if(isPracticeMode && levelIndex === LEVELS.length - 1){
@@ -1228,8 +1415,7 @@ function nextLevel(){
 }
 
 function exitFromLevelComplete(){
-  const raw = document.getElementById('levelCompleteNameInput').value.trim();
-  const name = raw ? raw.slice(0,16) : 'Jugador';
+  const name = currentUserName || 'Jugador';
   savePendingTableRecord(name);
   const list = loadLeaderboard();
   list.push({name, score, reached:lastReachedLabel, date:new Date().toLocaleDateString()});
@@ -1350,9 +1536,7 @@ function renderLeaderboard(list){
 }
 
 function submitScore(isWin){
-  const inputId = isWin ? 'winNameInput' : 'gameOverNameInput';
-  const raw = document.getElementById(inputId).value.trim();
-  const name = raw ? raw.slice(0,16) : 'Jugador';
+  const name = currentUserName || 'Jugador';
 
   if(isWin){
     savePendingTableRecord(name);
@@ -1375,6 +1559,14 @@ function submitScore(isWin){
 
 function restartFromLeaderboard(){
   document.getElementById('leaderboardOverlay').classList.remove('show');
+  document.getElementById('startOverlay').classList.add('show');
+}
+
+function goToMenu(){
+  const confirmExit = confirm('¿Volver al menú? Perderás el progreso de este puente.');
+  if(!confirmExit) return;
+  if('speechSynthesis' in window) window.speechSynthesis.cancel();
+  document.querySelectorAll('.overlay.show').forEach(o => o.classList.remove('show'));
   document.getElementById('startOverlay').classList.add('show');
 }
 
@@ -1485,10 +1677,338 @@ function startPracticeTable(table){
   showStudyThenBegin();
 }
 
+/* ===================== SISTEMA DE PERFILES / ACCESO ===================== */
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBOcMqFHB6514NhCFG7hPjwT4xK1wwK_vk",
+  authDomain: "puente-50e7d.firebaseapp.com",
+  databaseURL: "https://puente-50e7d-default-rtdb.firebaseio.com/",
+  projectId: "puente-50e7d",
+  storageBucket: "puente-50e7d.firebasestorage.app",
+  messagingSenderId: "234634072140",
+  appId: "1:234634072140:web:aef60747e3de159a67e4e9"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+const ADMIN_PATH = 'admin';
+const PERFILES_PATH = 'perfiles';
+const ADMIN_SALT = 'panel-maestro-puente';
+
+let currentUserId = null;
+let currentUserName = '';
+
+async function hashPattern(path, salt){
+  const data = new TextEncoder().encode('puenteTablas:' + salt + ':' + path.join(','));
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+function initAccess(){
+  const params = new URLSearchParams(window.location.search);
+  const uid = params.get('u');
+  const isAdmin = params.get('admin') === '1';
+  if(isAdmin){
+    openAdminGate();
+  } else if(uid){
+    currentUserId = uid;
+    loadUserProfile(uid);
+  } else {
+    document.getElementById('accessGateOverlay').classList.add('show');
+  }
+}
+
+function openAdminFromGate(){
+  document.getElementById('accessGateOverlay').classList.remove('show');
+  openAdminGate();
+}
+
+async function openAdminGate(){
+  document.getElementById('patternLoadingOverlay').classList.add('show');
+  try{
+    const snap = await db.ref(ADMIN_PATH + '/patron').once('value');
+    document.getElementById('patternLoadingOverlay').classList.remove('show');
+    if(snap.val()){
+      showAdminPatternLogin();
+    } else {
+      showAdminPatternSetup();
+    }
+  }catch(e){
+    document.getElementById('patternLoadingOverlay').classList.remove('show');
+    document.getElementById('accessGateText').textContent = 'No se pudo conectar. Revisa tu internet e intenta de nuevo.';
+    document.getElementById('accessGateOverlay').classList.add('show');
+  }
+}
+
+function openAdminPanel(){
+  document.getElementById('adminOverlay').classList.add('show');
+  renderAdminUserList();
+}
+
+function closeAdminPanel(){
+  document.getElementById('adminOverlay').classList.remove('show');
+  document.getElementById('accessGateOverlay').classList.add('show');
+}
+
+async function renderAdminUserList(){
+  const wrap = document.getElementById('adminUserList');
+  wrap.innerHTML = '<p style="color:var(--muted)">Cargando…</p>';
+  try{
+    const snap = await db.ref(PERFILES_PATH).once('value');
+    const data = snap.val();
+    if(!data){
+      wrap.innerHTML = '<p style="color:var(--muted)">Aún no hay usuarios. Agrega el primero arriba.</p>';
+      return;
+    }
+    const entries = Object.entries(data).sort((a,b)=> (b[1].creado||0) - (a[1].creado||0));
+    wrap.innerHTML = '';
+    entries.forEach(([id, info])=>{
+      const link = window.location.origin + window.location.pathname + '?u=' + id;
+      const row = document.createElement('div');
+      row.className = 'admin-user-row';
+      row.innerHTML =
+        '<div class="admin-user-info">' +
+          '<strong>' + info.nombre + '</strong>' +
+        '</div>' +
+        '<div class="admin-user-actions">' +
+          '<button class="btn teal small" type="button">Copiar link</button>' +
+          '<button class="btn small" type="button" style="background:var(--crack)">Eliminar</button>' +
+        '</div>';
+      row.querySelector('.btn.teal').onclick = () => copyUserLink(link);
+      row.querySelector('.btn.small:last-child').onclick = () => deleteUser(id, info.nombre);
+      wrap.appendChild(row);
+    });
+  }catch(e){
+    wrap.innerHTML = '<p style="color:var(--crack)">No se pudo cargar la lista de usuarios.</p>';
+  }
+}
+
+async function addNewUser(){
+  const input = document.getElementById('newUserNameInput');
+  const name = input.value.trim();
+  if(!name){ alert('Escribe un nombre para el nuevo usuario'); return; }
+  try{
+    const newRef = db.ref(PERFILES_PATH).push();
+    await newRef.set({
+      nombre: name,
+      creado: firebase.database.ServerValue.TIMESTAMP
+    });
+    input.value = '';
+    const link = window.location.origin + window.location.pathname + '?u=' + newRef.key;
+    await renderAdminUserList();
+    copyUserLink(link);
+    alert('Usuario creado. El link de acceso se copió al portapapeles:\n' + link);
+  }catch(e){
+    alert('No se pudo crear el usuario. Revisa tu conexión e intenta de nuevo.');
+  }
+}
+
+function copyUserLink(link){
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(link).catch(()=>{});
+  }
+}
+
+async function deleteUser(id, name){
+  const ok = confirm('¿Eliminar a "' + name + '"? Esta acción no se puede deshacer.');
+  if(!ok) return;
+  try{
+    await db.ref(PERFILES_PATH + '/' + id).remove();
+    renderAdminUserList();
+  }catch(e){
+    alert('No se pudo eliminar el usuario.');
+  }
+}
+
+async function loadUserProfile(uid){
+  document.getElementById('patternLoadingOverlay').classList.add('show');
+  try{
+    const snap = await db.ref(PERFILES_PATH + '/' + uid).once('value');
+    document.getElementById('patternLoadingOverlay').classList.remove('show');
+    const data = snap.val();
+    if(!data){
+      document.getElementById('accessGateText').textContent = 'Este enlace ya no es válido. Contacta al administrador.';
+      document.getElementById('accessGateOverlay').classList.add('show');
+      return;
+    }
+    currentUserName = data.nombre;
+    enterGameAsUser();
+  }catch(e){
+    document.getElementById('patternLoadingOverlay').classList.remove('show');
+    document.getElementById('accessGateText').textContent = 'No se pudo conectar. Revisa tu internet e intenta de nuevo.';
+    document.getElementById('accessGateOverlay').classList.add('show');
+  }
+}
+
+/* ---- Patrón táctil (cuadrícula 3x3 estilo Android) ---- */
+function buildPatternPad(container, onComplete){
+  container.innerHTML = '';
+  const dots = [];
+  for(let i=0;i<9;i++){
+    const dot = document.createElement('div');
+    dot.className = 'pattern-dot';
+    dot.dataset.index = i;
+    container.appendChild(dot);
+    dots.push(dot);
+  }
+  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('class','pattern-lines');
+  container.appendChild(svg);
+
+  let drawing = false;
+  let path = [];
+
+  function dotCenter(dot){
+    const r = dot.getBoundingClientRect();
+    const cr = container.getBoundingClientRect();
+    return { x: r.left - cr.left + r.width/2, y: r.top - cr.top + r.height/2 };
+  }
+
+  function reset(){
+    path = [];
+    dots.forEach(d => d.classList.remove('active','error'));
+    svg.innerHTML = '';
+  }
+
+  function addPoint(dot){
+    const idx = Number(dot.dataset.index);
+    if(path.includes(idx)) return;
+    path.push(idx);
+    dot.classList.add('active');
+    if(path.length > 1){
+      const prev = dots[path[path.length-2]];
+      const c1 = dotCenter(prev), c2 = dotCenter(dot);
+      const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+      line.setAttribute('x1', c1.x); line.setAttribute('y1', c1.y);
+      line.setAttribute('x2', c2.x); line.setAttribute('y2', c2.y);
+      line.setAttribute('class','pattern-line');
+      svg.appendChild(line);
+    }
+  }
+
+  function dotAtPoint(clientX, clientY){
+    return dots.find(d=>{
+      const r = d.getBoundingClientRect();
+      return clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom;
+    });
+  }
+
+  function start(e){
+    reset();
+    drawing = true;
+    const t = e.touches ? e.touches[0] : e;
+    const dot = dotAtPoint(t.clientX, t.clientY);
+    if(dot) addPoint(dot);
+    e.preventDefault();
+  }
+  function move(e){
+    if(!drawing) return;
+    const t = e.touches ? e.touches[0] : e;
+    const dot = dotAtPoint(t.clientX, t.clientY);
+    if(dot) addPoint(dot);
+    e.preventDefault();
+  }
+  function end(){
+    if(!drawing) return;
+    drawing = false;
+    if(path.length >= 4){
+      onComplete(path.slice());
+    } else {
+      dots.forEach(d => d.classList.add('error'));
+      setTimeout(reset, 350);
+    }
+  }
+
+  container.addEventListener('mousedown', start);
+  container.addEventListener('mousemove', move);
+  window.addEventListener('mouseup', end);
+  container.addEventListener('touchstart', start, {passive:false});
+  container.addEventListener('touchmove', move, {passive:false});
+  container.addEventListener('touchend', end);
+
+  return { reset };
+}
+
+let setupPad = null;
+let setupFirstPattern = null;
+
+function showAdminPatternSetup(){
+  setupFirstPattern = null;
+  document.getElementById('patternSetupTitle').textContent = 'CREA TU PATRÓN DE ADMINISTRADOR';
+  document.getElementById('patternSetupHint').textContent =
+    'Es la primera vez que entras. Dibuja un patrón nuevo (mínimo 4 puntos) para proteger el panel.';
+  document.getElementById('patternSetupOverlay').classList.add('show');
+  setupPad = buildPatternPad(document.getElementById('patternPadSetup'), onAdminSetupPatternDrawn);
+}
+
+function onAdminSetupPatternDrawn(path){
+  if(!setupFirstPattern){
+    setupFirstPattern = path;
+    document.getElementById('patternSetupHint').textContent = 'Repite el mismo patrón para confirmarlo.';
+    setTimeout(()=> setupPad.reset(), 300);
+  } else {
+    const same = path.length === setupFirstPattern.length && path.every((v,i)=> v === setupFirstPattern[i]);
+    if(same){
+      saveAdminPattern(path);
+    } else {
+      setupFirstPattern = null;
+      document.getElementById('patternSetupHint').textContent = 'No coincide. Dibuja tu patrón otra vez desde cero.';
+      setTimeout(()=> setupPad.reset(), 300);
+    }
+  }
+}
+
+async function saveAdminPattern(path){
+  try{
+    const hash = await hashPattern(path, ADMIN_SALT);
+    await db.ref(ADMIN_PATH).update({ patron: hash });
+    document.getElementById('patternSetupOverlay').classList.remove('show');
+    openAdminPanel();
+  }catch(e){
+    alert('No se pudo guardar el patrón. Intenta de nuevo.');
+    setupFirstPattern = null;
+    setupPad.reset();
+  }
+}
+
+let loginPad = null;
+
+function showAdminPatternLogin(){
+  document.getElementById('patternLoginHint').textContent = 'Dibuja el patrón del administrador para entrar.';
+  document.getElementById('patternLoginOverlay').classList.add('show');
+  loginPad = buildPatternPad(document.getElementById('patternPadLogin'), onAdminLoginPatternDrawn);
+}
+
+async function onAdminLoginPatternDrawn(path){
+  try{
+    const snap = await db.ref(ADMIN_PATH + '/patron').once('value');
+    const stored = snap.val() || '';
+    const attemptHash = await hashPattern(path, ADMIN_SALT);
+    const same = attemptHash === stored;
+    if(same){
+      document.getElementById('patternLoginOverlay').classList.remove('show');
+      openAdminPanel();
+    } else {
+      document.getElementById('patternLoginHint').textContent = 'Patrón incorrecto. Intenta de nuevo.';
+      loginPad.reset();
+    }
+  }catch(e){
+    document.getElementById('patternLoginHint').textContent = 'Error de conexión. Intenta de nuevo.';
+    loginPad.reset();
+  }
+}
+
+function enterGameAsUser(){
+  document.getElementById('startOverlay').classList.add('show');
+}
+
+/* ===================== FIN SISTEMA DE PERFILES / ACCESO ===================== */
+
 // initial paint (idle state behind overlay)
 renderLives();
 renderScore();
 renderLevelTag();
+initAccess();
 </script>
 
 </body>

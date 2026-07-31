@@ -808,6 +808,7 @@
 <body>
 
 <audio id="menuMusic" src="puente-musica-menu.mp3" loop preload="auto"></audio>
+<audio id="gameMusic" src="puente-musica-juego.mp3" loop preload="auto"></audio>
 
 <div class="shape circle"></div>
 <div class="shape tri"></div>
@@ -859,6 +860,14 @@
   </div>
 
   <!-- Overlay: estudia la tabla (preámbulo) -->
+  <!-- Overlay: resultado de la respuesta (correcto / incorrecto) -->
+  <div class="overlay" id="answerFeedbackOverlay">
+    <div class="symbol" id="answerFeedbackSymbol">✓</div>
+    <h2 id="answerFeedbackTitle" style="color:var(--teal)">¡CORRECTO!</h2>
+    <p id="answerFeedbackText"></p>
+    <button class="btn teal" id="answerFeedbackBtn" onclick="continueAfterAnswer()">Siguiente</button>
+  </div>
+
   <div class="overlay" id="studyOverlay">
     <div class="symbol">📖</div>
     <h2 id="studyTitle" style="color:var(--gold)">TABLA DEL 2</h2>
@@ -1085,6 +1094,20 @@ function pauseMenuMusic(){
   menuMusicEl.pause();
 }
 
+const gameMusicEl = document.getElementById('gameMusic');
+if(gameMusicEl) gameMusicEl.volume = 0.35;
+
+function playGameMusic(){
+  if(!gameMusicEl) return;
+  gameMusicEl.currentTime = gameMusicEl.currentTime || 0;
+  gameMusicEl.play().catch(()=>{});
+}
+
+function pauseGameMusic(){
+  if(!gameMusicEl) return;
+  gameMusicEl.pause();
+}
+
 function playTone(freq, duration, type, delay, gainVal){
   const ctx = getAudioCtx();
   const osc = ctx.createOscillator();
@@ -1263,14 +1286,7 @@ function handleAnswer(chosen, correct, btnEl){
     renderScore();
     advanceRivals();
     setTimeout(()=>{
-      step++;
-      if(step >= 10){
-        showLevelComplete();
-      } else {
-        renderBridge();
-        renderQuestion();
-        renderLevelTag();
-      }
+      showAnswerFeedback(true, `${LEVELS[levelIndex].table} × ${sequence[step]} = ${correct}`);
     }, 500);
   } else {
     btnEl.classList.add('wrong');
@@ -1288,14 +1304,44 @@ function handleAnswer(chosen, correct, btnEl){
     setTimeout(()=>{
       if(tile) tile.classList.remove('crack');
       if(token) token.classList.remove('fall');
-      if(lives <= 0){
-        showGameOver();
-      } else {
-        renderQuestion();
-      }
+      showAnswerFeedback(false, `${LEVELS[levelIndex].table} × ${sequence[step]} = ${correct}`);
     }, 650);
   }
   renderLevelTag();
+}
+
+let pendingWasCorrect = false;
+
+function showAnswerFeedback(isCorrect, message){
+  pendingWasCorrect = isCorrect;
+  document.getElementById('answerFeedbackSymbol').textContent = isCorrect ? '✓' : '✕';
+  const title = document.getElementById('answerFeedbackTitle');
+  title.textContent = isCorrect ? '¡CORRECTO!' : 'INCORRECTO';
+  title.style.color = isCorrect ? 'var(--teal)' : 'var(--crack)';
+  const btn = document.getElementById('answerFeedbackBtn');
+  btn.className = 'btn ' + (isCorrect ? 'teal' : '');
+  document.getElementById('answerFeedbackText').textContent = message;
+  document.getElementById('answerFeedbackOverlay').classList.add('show');
+}
+
+function continueAfterAnswer(){
+  document.getElementById('answerFeedbackOverlay').classList.remove('show');
+  if(pendingWasCorrect){
+    step++;
+    if(step >= 10){
+      showLevelComplete();
+    } else {
+      renderBridge();
+      renderQuestion();
+      renderLevelTag();
+    }
+  } else {
+    if(lives <= 0){
+      showGameOver();
+    } else {
+      renderQuestion();
+    }
+  }
 }
 
 function renderStudyGrid(table){
@@ -1348,6 +1394,7 @@ function finishStudy(){
 }
 
 function showGameOver(){
+  pauseGameMusic();
   const level = LEVELS[levelIndex];
   lastReachedLabel = `Tabla del ${level.table} (${level.mode})`;
   document.getElementById('gameOverText').textContent =
@@ -1382,6 +1429,7 @@ function showLevelComplete(){
   pendingTableRecord = { table: level.table, seconds: tableTotalSeconds };
 
   if(levelIndex === LEVELS.length - 1 && !isPracticeMode){
+    pauseGameMusic();
     const elapsedTotal = (Date.now() - gameStartTime) / 1000;
     pendingTotalRecord = { seconds: elapsedTotal };
     lastReachedLabel = 'Completó todas las tablas (1-10)';
@@ -1421,6 +1469,7 @@ function nextLevel(){
   savePendingTableRecord(name);
   document.getElementById('levelCompleteOverlay').classList.remove('show');
   if(isPracticeMode && levelIndex === LEVELS.length - 1){
+    pauseGameMusic();
     isPracticeMode = false;
     practiceTable = null;
     showTableSelect();
@@ -1447,6 +1496,7 @@ function exitFromLevelComplete(){
 function startGame(){
   getAudioCtx();
   pauseMenuMusic();
+  playGameMusic();
   document.getElementById('startOverlay').classList.remove('show');
   isPracticeMode = false;
   practiceTable = null;
@@ -1584,6 +1634,7 @@ function goToMenu(){
   const confirmExit = confirm('¿Volver al menú? Perderás el progreso de este puente.');
   if(!confirmExit) return;
   if('speechSynthesis' in window) window.speechSynthesis.cancel();
+  pauseGameMusic();
   document.querySelectorAll('.overlay.show').forEach(o => o.classList.remove('show'));
   document.getElementById('startOverlay').classList.add('show');
   playMenuMusic();
@@ -1688,6 +1739,7 @@ function backToStartFromTableSelect(){
 function startPracticeTable(table){
   getAudioCtx();
   pauseMenuMusic();
+  playGameMusic();
   document.getElementById('tableSelectOverlay').classList.remove('show');
   isPracticeMode = true;
   practiceTable = table;

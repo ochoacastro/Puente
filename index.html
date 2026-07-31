@@ -860,6 +860,17 @@
   </div>
 
   <!-- Overlay: estudia la tabla (preámbulo) -->
+  <!-- Overlay: confirmar salida al menú -->
+  <div class="overlay" id="menuConfirmOverlay">
+    <div class="symbol">☰</div>
+    <h2 style="color:var(--gold)">¿VOLVER AL MENÚ?</h2>
+    <p>Perderás el progreso de este puente.</p>
+    <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+      <button class="btn" style="background:rgba(255,255,255,0.08); color:var(--muted);" onclick="cancelGoToMenu()">Cancelar</button>
+      <button class="btn" style="background:var(--crack)" onclick="confirmGoToMenu()">Sí, salir</button>
+    </div>
+  </div>
+
   <!-- Overlay: resultado de la respuesta (correcto / incorrecto) -->
   <div class="overlay" id="answerFeedbackOverlay">
     <div class="symbol" id="answerFeedbackSymbol">✓</div>
@@ -1631,8 +1642,15 @@ function restartFromLeaderboard(){
 }
 
 function goToMenu(){
-  const confirmExit = confirm('¿Volver al menú? Perderás el progreso de este puente.');
-  if(!confirmExit) return;
+  document.getElementById('menuConfirmOverlay').classList.add('show');
+}
+
+function cancelGoToMenu(){
+  document.getElementById('menuConfirmOverlay').classList.remove('show');
+}
+
+function confirmGoToMenu(){
+  document.getElementById('menuConfirmOverlay').classList.remove('show');
   if('speechSynthesis' in window) window.speechSynthesis.cancel();
   pauseGameMusic();
   document.querySelectorAll('.overlay.show').forEach(o => o.classList.remove('show'));

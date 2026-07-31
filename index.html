@@ -902,6 +902,7 @@
   <div class="overlay" id="startOverlay">
     <div class="symbol">⭘ △ ▢</div>
     <h2>¿LISTO PARA JUGAR?</h2>
+    <p id="startUserGreeting" style="color:var(--gold); font-weight:600; display:none;"></p>
     <p>Cruzarás 10 puentes (tablas del 1 al 10), cada uno en orden y luego desordenado.<br>
     Empiezas con <b>3 vidas</b> (hasta un máximo de 5). Un error resta 1 vida y 1 punto.<br>
     Cruza un puente sin fallar ni una y ganas <b>1 vida extra</b>. ¡Acertar suma 3 puntos!</p>
@@ -2253,6 +2254,13 @@ async function onAdminLoginPatternDrawn(path){
 }
 
 function enterGameAsUser(){
+  const greeting = document.getElementById('startUserGreeting');
+  if(currentUserName){
+    greeting.textContent = `¡Hola, ${currentUserName}!`;
+    greeting.style.display = 'block';
+  } else {
+    greeting.style.display = 'none';
+  }
   document.getElementById('startOverlay').classList.add('show');
   playMenuMusic();
 }

@@ -909,6 +909,9 @@
     <button class="btn teal" style="margin-top:10px" onclick="openTableSelectFromStart()">Practicar una tabla</button>
     <button class="btn teal" style="margin-top:10px" onclick="showLeaderboardFromStart()">Ver puntuaciones anteriores</button>
     <button class="btn gold" style="margin-top:10px" onclick="showRecordsFromStart()">Ver récords de tiempo</button>
+    <div style="margin-top:14px">
+      <a href="#" onclick="logoutSession(); return false;" style="color:var(--muted); font-size:12px; text-decoration:underline;">Cerrar sesión</a>
+    </div>
   </div>
 
   <!-- Overlay: elegir tabla para practicar -->
@@ -1102,6 +1105,11 @@ function getSavedSession(){
 
 function clearSession(){
   try{ localStorage.removeItem(SESSION_KEY); }catch(e){}
+}
+
+function logoutSession(){
+  clearSession();
+  window.location.href = window.location.origin + window.location.pathname;
 }
 let levelStartTime = 0;
 let gameStartTime = 0;

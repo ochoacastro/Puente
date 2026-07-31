@@ -425,6 +425,62 @@
   }
   .menu-btn:active{transform:scale(.96);}
 
+  .volume-btn{
+    position:absolute;
+    top:14px;
+    right:14px;
+    background:rgba(255,255,255,0.08);
+    color:var(--muted);
+    border:1px solid rgba(255,255,255,0.12);
+    width:30px;
+    height:30px;
+    border-radius:50%;
+    font-size:14px;
+    cursor:pointer;
+    z-index:6;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .volume-btn:active{transform:scale(.96);}
+  .volume-panel{
+    position:absolute;
+    top:50px;
+    right:14px;
+    background:var(--panel);
+    border:1px solid rgba(255,255,255,0.12);
+    border-radius:14px;
+    padding:14px 12px;
+    z-index:6;
+    display:none;
+    align-items:center;
+    gap:8px;
+    box-shadow:0 10px 24px rgba(0,0,0,0.45);
+  }
+  .volume-panel.show{display:flex;}
+  .volume-panel input[type="range"]{
+    -webkit-appearance:none;
+    width:110px;
+    height:4px;
+    border-radius:2px;
+    background:rgba(255,255,255,0.15);
+    outline:none;
+  }
+  .volume-panel input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:16px;height:16px;
+    border-radius:50%;
+    background:var(--teal);
+    cursor:pointer;
+  }
+  .volume-panel input[type="range"]::-moz-range-thumb{
+    width:16px;height:16px;
+    border:none;
+    border-radius:50%;
+    background:var(--teal);
+    cursor:pointer;
+  }
+
   .symbol{font-size:52px;margin-bottom:6px;}
 
   footer.progress{
@@ -816,6 +872,12 @@
 
 <div class="stage">
   <button class="menu-btn" onclick="goToMenu()">☰ Menú</button>
+  <button class="volume-btn" id="volumeBtn" onclick="toggleVolumePanel()">🔊</button>
+  <div class="volume-panel" id="volumePanel">
+    <span style="font-size:12px">🔈</span>
+    <input type="range" id="volumeSlider" min="0" max="100" value="100" oninput="onVolumeInput(this.value)">
+    <span style="font-size:12px">🔊</span>
+  </div>
   <header>
     <h1>EL PUENTE DE LAS <span>TABLAS</span></h1>
     <div class="subtitle">Cruza todos los puentes sin quedarte sin vidas</div>
@@ -968,7 +1030,19 @@
       </div>
       <div class="admin-user-list" id="adminUserList"></div>
     </div>
-    <button class="btn" style="margin-top:14px" onclick="closeAdminPanel()">Cerrar</button>
+    <button class="btn" style="background:var(--crack); margin-top:14px" onclick="askResetAllRecords()">Reiniciar todos los récords</button>
+    <button class="btn" style="margin-top:10px" onclick="closeAdminPanel()">Cerrar</button>
+  </div>
+
+  <!-- Overlay: confirmar reinicio de récords -->
+  <div class="overlay" id="resetRecordsConfirmOverlay">
+    <div class="symbol">⚠️</div>
+    <h2 style="color:var(--crack)">¿REINICIAR TODOS LOS RÉCORDS?</h2>
+    <p>Se borrarán el ranking de puntuaciones y todos los récords de tiempo. Esta acción no se puede deshacer.</p>
+    <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+      <button class="btn" style="background:rgba(255,255,255,0.08); color:var(--muted);" onclick="cancelResetAllRecords()">Cancelar</button>
+      <button class="btn" style="background:var(--crack)" onclick="confirmResetAllRecords()">Sí, reiniciar</button>
+    </div>
   </div>
 
   <!-- Overlay: crear patrón (primer ingreso) -->
@@ -1014,6 +1088,22 @@ const MAX_LIVES = 5;
 const LEADERBOARD_KEY = 'puenteCalamarLeaderboard';
 const TABLE_TIME_RECORDS_KEY = 'puenteCalamarRecordsTablasTiempo';
 const TOTAL_TIME_RECORDS_KEY = 'puenteCalamarRecordTotalTiempo';
+const SESSION_KEY = 'puenteTablasSesion';
+
+function saveSession(session){
+  try{ localStorage.setItem(SESSION_KEY, JSON.stringify(session)); }catch(e){}
+}
+
+function getSavedSession(){
+  try{
+    const raw = localStorage.getItem(SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+
+function clearSession(){
+  try{ localStorage.removeItem(SESSION_KEY); }catch(e){}
+}
 let levelStartTime = 0;
 let gameStartTime = 0;
 let currentTableOrdenTime = null;
@@ -1091,8 +1181,30 @@ function getAudioCtx(){
   return audioCtx;
 }
 
+const VOLUME_KEY = 'puenteTablasVolumen';
+let masterVolume = 1;
+try{
+  const savedVol = localStorage.getItem(VOLUME_KEY);
+  if(savedVol !== null) masterVolume = Math.min(1, Math.max(0, parseFloat(savedVol)));
+}catch(e){}
+
+function applyMasterVolume(){
+  if(menuMusicEl) menuMusicEl.volume = 0.4 * masterVolume;
+  if(gameMusicEl) gameMusicEl.volume = 0.35 * masterVolume;
+}
+
+function onVolumeInput(val){
+  masterVolume = Math.min(1, Math.max(0, val/100));
+  applyMasterVolume();
+  try{ localStorage.setItem(VOLUME_KEY, String(masterVolume)); }catch(e){}
+}
+
+function toggleVolumePanel(){
+  document.getElementById('volumePanel').classList.toggle('show');
+}
+
 const menuMusicEl = document.getElementById('menuMusic');
-if(menuMusicEl) menuMusicEl.volume = 0.4;
+if(menuMusicEl) menuMusicEl.volume = 0.4 * masterVolume;
 
 function playMenuMusic(){
   if(!menuMusicEl) return;
@@ -1106,7 +1218,7 @@ function pauseMenuMusic(){
 }
 
 const gameMusicEl = document.getElementById('gameMusic');
-if(gameMusicEl) gameMusicEl.volume = 0.35;
+if(gameMusicEl) gameMusicEl.volume = 0.35 * masterVolume;
 
 function playGameMusic(){
   if(!gameMusicEl) return;
@@ -1126,7 +1238,7 @@ function playTone(freq, duration, type, delay, gainVal){
   osc.type = type || 'sine';
   osc.frequency.value = freq;
   const startTime = ctx.currentTime + (delay || 0);
-  gain.gain.setValueAtTime(gainVal || 0.15, startTime);
+  gain.gain.setValueAtTime((gainVal || 0.15) * masterVolume, startTime);
   gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
   osc.connect(gain);
   gain.connect(ctx.destination);
@@ -1154,6 +1266,7 @@ function speakQuestion(text){
   utter.lang = 'es-MX';
   utter.rate = 0.9;
   utter.pitch = 1.1;
+  utter.volume = masterVolume;
   window.speechSynthesis.speak(utter);
 }
 
@@ -1164,6 +1277,7 @@ function speakStudyRow(table, n){
   utter.lang = 'es-MX';
   utter.rate = 0.9;
   utter.pitch = 1.1;
+  utter.volume = masterVolume;
   window.speechSynthesis.speak(utter);
 }
 
@@ -1174,6 +1288,7 @@ function speakAnswer(text){
   utter.lang = 'es-MX';
   utter.rate = 0.9;
   utter.pitch = 1.1;
+  utter.volume = masterVolume;
   window.speechSynthesis.speak(utter);
 }
 
@@ -1802,12 +1917,24 @@ function initAccess(){
   const isAdmin = params.get('admin') === '1';
   if(isAdmin){
     openAdminGate();
-  } else if(uid){
+    return;
+  }
+  if(uid){
     currentUserId = uid;
     loadUserProfile(uid);
-  } else {
-    document.getElementById('accessGateOverlay').classList.add('show');
+    return;
   }
+  const saved = getSavedSession();
+  if(saved && saved.type === 'user' && saved.uid){
+    currentUserId = saved.uid;
+    loadUserProfile(saved.uid);
+    return;
+  }
+  if(saved && saved.type === 'admin'){
+    openAdminGate();
+    return;
+  }
+  document.getElementById('accessGateOverlay').classList.add('show');
 }
 
 function openAdminFromGate(){
@@ -1912,6 +2039,24 @@ async function deleteUser(id, name){
   }
 }
 
+function askResetAllRecords(){
+  document.getElementById('resetRecordsConfirmOverlay').classList.add('show');
+}
+
+function cancelResetAllRecords(){
+  document.getElementById('resetRecordsConfirmOverlay').classList.remove('show');
+}
+
+function confirmResetAllRecords(){
+  try{
+    localStorage.removeItem(LEADERBOARD_KEY);
+    localStorage.removeItem(TABLE_TIME_RECORDS_KEY);
+    localStorage.removeItem(TOTAL_TIME_RECORDS_KEY);
+  }catch(e){}
+  document.getElementById('resetRecordsConfirmOverlay').classList.remove('show');
+  alert('Todos los récords fueron reiniciados.');
+}
+
 async function loadUserProfile(uid){
   document.getElementById('patternLoadingOverlay').classList.add('show');
   try{
@@ -1924,6 +2069,7 @@ async function loadUserProfile(uid){
       return;
     }
     currentUserName = data.nombre;
+    saveSession({ type:'user', uid: uid });
     enterGameAsUser();
   }catch(e){
     document.getElementById('patternLoadingOverlay').classList.remove('show');
@@ -2055,6 +2201,7 @@ async function saveAdminPattern(path){
     const hash = await hashPattern(path, ADMIN_SALT);
     await db.ref(ADMIN_PATH).update({ patron: hash });
     document.getElementById('patternSetupOverlay').classList.remove('show');
+    saveSession({ type:'admin' });
     openAdminPanel();
   }catch(e){
     alert('No se pudo guardar el patrón. Intenta de nuevo.');
@@ -2079,6 +2226,7 @@ async function onAdminLoginPatternDrawn(path){
     const same = attemptHash === stored;
     if(same){
       document.getElementById('patternLoginOverlay').classList.remove('show');
+      saveSession({ type:'admin' });
       openAdminPanel();
     } else {
       document.getElementById('patternLoginHint').textContent = 'Patrón incorrecto. Intenta de nuevo.';
@@ -2101,6 +2249,7 @@ function enterGameAsUser(){
 renderLives();
 renderScore();
 renderLevelTag();
+document.getElementById('volumeSlider').value = Math.round(masterVolume * 100);
 initAccess();
 </script>
 

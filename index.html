@@ -1674,26 +1674,25 @@ function addTableTimeRecord(table, name, seconds){
   return top;
 }
 
-function loadTotalTimeRecords(){
-  try{
-    const raw = localStorage.getItem(TOTAL_TIME_RECORDS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  }catch(e){
-    return [];
-  }
-}
-
-function saveTotalTimeRecords(list){
-  try{ localStorage.setItem(TOTAL_TIME_RECORDS_KEY, JSON.stringify(list)); }catch(e){}
-}
-
 function addTotalTimeRecord(name, seconds){
-  const list = loadTotalTimeRecords();
-  list.push({name, seconds, date:new Date().toLocaleDateString()});
-  list.sort((a,b)=>a.seconds-b.seconds);
-  const top = list.slice(0,10);
-  saveTotalTimeRecords(top);
-  return top;
+  try{
+    db.ref(TIEMPOS_TOTAL_PATH).push({
+      nombre: name,
+      uid: currentUserId || null,
+      segundos: seconds,
+      fecha: new Date().toLocaleDateString()
+    });
+  }catch(e){}
+}
+
+async function loadTotalTimeRecordsFromFirebase(){
+  try{
+    const snap = await db.ref(TIEMPOS_TOTAL_PATH).once('value');
+    const data = snap.val() || {};
+    return Object.values(data).sort((a,b)=>a.segundos-b.segundos).slice(0,20);
+  }catch(e){
+    return null;
+  }
 }
 
 function savePendingTableRecord(name){
@@ -1799,7 +1798,7 @@ function renderRecordsTableSelect(){
   });
 }
 
-function renderRecordsList(){
+async function renderRecordsList(){
   renderRecordsTableSelect();
   document.getElementById('recordsTableTitle').textContent = `TABLA DEL ${selectedRecordsTable} — TOP 10`;
 
@@ -1821,16 +1820,21 @@ function renderRecordsList(){
   }
 
   const totalOl = document.getElementById('recordsTotalList');
+  totalOl.innerHTML = '<li>Cargando...</li>';
+  const totalList = await loadTotalTimeRecordsFromFirebase();
   totalOl.innerHTML = '';
-  const totalList = loadTotalTimeRecords();
-  if(totalList.length === 0){
+  if(totalList === null){
+    const li = document.createElement('li');
+    li.textContent = 'No se pudo cargar la tabla de tiempos.';
+    totalOl.appendChild(li);
+  } else if(totalList.length === 0){
     const li = document.createElement('li');
     li.textContent = 'Aún nadie completó el juego.';
     totalOl.appendChild(li);
   } else {
     totalList.forEach((entry, i)=>{
       const li = document.createElement('li');
-      li.innerHTML = `<span class="lb-info"><span>${i+1}. ${entry.name}</span></span><span>${formatTime(entry.seconds)}</span>`;
+      li.innerHTML = `<span class="lb-info"><span>${i+1}. ${entry.nombre}</span></span><span>${formatTime(entry.segundos)}</span>`;
       totalOl.appendChild(li);
     });
   }
@@ -1908,6 +1912,7 @@ const db = firebase.database();
 
 const ADMIN_PATH = 'admin';
 const PERFILES_PATH = 'perfiles';
+const TIEMPOS_TOTAL_PATH = 'tiemposTotales';
 const ADMIN_SALT = 'panel-maestro-puente';
 
 let currentUserId = null;
@@ -2068,6 +2073,7 @@ function confirmResetAllRecords(){
     localStorage.removeItem(TABLE_TIME_RECORDS_KEY);
     localStorage.removeItem(TOTAL_TIME_RECORDS_KEY);
   }catch(e){}
+  db.ref(TIEMPOS_TOTAL_PATH).remove().catch(()=>{});
   document.getElementById('resetRecordsConfirmOverlay').classList.remove('show');
   alert('Todos los récords fueron reiniciados.');
 }

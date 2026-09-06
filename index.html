@@ -401,6 +401,7 @@
     z-index:5;
   }
   .overlay.show{display:flex;}
+  #menuConfirmOverlay{ z-index:7; }
   .overlay h2{
     font-family:'Bebas Neue',sans-serif;
     font-size:38px;
@@ -436,7 +437,7 @@
     font-weight:600;
     letter-spacing:.3px;
     cursor:pointer;
-    z-index:5;
+    z-index:6;
   }
   .menu-btn:active{transform:scale(.96);}
 
@@ -537,6 +538,75 @@
     max-width:300px;
     max-height:260px;
     overflow-y:auto;
+  }
+  .music-config-list{
+    width:100%;
+    max-width:340px;
+    max-height:340px;
+    overflow-y:auto;
+    margin-bottom:16px;
+    -webkit-overflow-scrolling:touch;
+  }
+  .music-config-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    background:#1f1f2c;
+    border:1px solid rgba(255,255,255,0.07);
+    border-radius:10px;
+    padding:9px 12px;
+    margin-bottom:7px;
+    text-align:left;
+  }
+  .music-config-info{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    min-width:0;
+    flex:1;
+  }
+  .music-config-name{
+    font-size:14px;
+    font-weight:700;
+    color:var(--text);
+  }
+  .music-config-status{
+    font-size:11px;
+    color:var(--muted);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    max-width:150px;
+  }
+  .music-config-actions{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    flex-shrink:0;
+  }
+  .music-upload-btn{
+    background:var(--teal);
+    color:#0a0a0f;
+    border:none;
+    padding:8px 12px;
+    border-radius:20px;
+    font-weight:700;
+    font-size:12px;
+    cursor:pointer;
+    letter-spacing:.3px;
+    display:inline-flex;
+    align-items:center;
+  }
+  .music-remove-btn{
+    background:rgba(255,255,255,0.08);
+    color:var(--muted);
+    border:1px solid rgba(255,255,255,0.12);
+    padding:8px 10px;
+    border-radius:20px;
+    font-weight:700;
+    font-size:12px;
+    cursor:pointer;
   }
   .leaderboard-list li{
     display:flex;
@@ -879,6 +949,7 @@
 
 <audio id="menuMusic" src="puente-musica-menu.mp3" loop preload="auto"></audio>
 <audio id="gameMusic" src="puente-musica-juego.mp3" loop preload="auto"></audio>
+<audio id="customTableMusic" loop preload="auto"></audio>
 
 <div class="shape circle"></div>
 <div class="shape tri"></div>
@@ -925,6 +996,7 @@
     <button class="btn teal" style="margin-top:10px" onclick="openTableSelectFromStart()">Practicar una tabla</button>
     <button class="btn teal" style="margin-top:10px" onclick="showLeaderboardFromStart()">Ver puntuaciones anteriores</button>
     <button class="btn gold" style="margin-top:10px" onclick="showRecordsFromStart()">Ver récords de tiempo</button>
+    <button class="btn" style="margin-top:10px; background:rgba(255,255,255,0.08); color:var(--muted); border:1px solid rgba(255,255,255,0.12);" onclick="openMusicConfigFromStart()">🎵 Música por tabla</button>
     <div style="margin-top:14px">
       <a href="#" onclick="logoutSession(); return false;" style="color:var(--muted); font-size:12px; text-decoration:underline;">Cerrar sesión</a>
     </div>
@@ -1016,6 +1088,15 @@
     <h3 style="color:var(--gold); margin:2px 0 6px; font-size:15px;">🏁 MEJORES TIEMPOS · JUEGO COMPLETO</h3>
     <ol class="leaderboard-list" id="recordsTotalList"></ol>
     <button class="btn gold" onclick="restartFromRecords()">Volver al inicio</button>
+  </div>
+
+  <!-- Overlay: configuración de música personalizada por tabla -->
+  <div class="overlay" id="musicConfigOverlay">
+    <div class="symbol">🎵</div>
+    <h2 style="color:var(--teal)">MÚSICA POR TABLA</h2>
+    <p style="margin-bottom:6px">Sube un audio desde tu celular para cada tabla. Se guarda solo en este dispositivo.</p>
+    <div class="music-config-list" id="musicConfigList"></div>
+    <button class="btn" style="margin-top:10px" onclick="closeMusicConfig()">Volver</button>
   </div>
 
   <!-- Overlay: cinemática de salto / caída del personaje -->
@@ -1121,7 +1202,7 @@ function applyTableTheme(table){
     `radial-gradient(circle at 90% 110%, rgba(${theme.accent2},0.12), transparent 45%),` +
     theme.bg;
   if(gameMusicActive){
-    startTableMusicLoop(theme);
+    playCustomOrProceduralMusic(table);
   }
 }
 
@@ -1248,6 +1329,8 @@ try{
 function applyMasterVolume(){
   if(menuMusicEl) menuMusicEl.volume = 0.4 * masterVolume;
   if(gameMusicEl) gameMusicEl.volume = 0.35 * masterVolume;
+  const customEl = document.getElementById('customTableMusic');
+  if(customEl) customEl.volume = 0.5 * masterVolume;
 }
 
 function onVolumeInput(val){
@@ -1279,19 +1362,47 @@ if(gameMusicEl) gameMusicEl.volume = 0.35 * masterVolume;
 
 let gameMusicActive = false;
 
+function currentLevelTable(){
+  const lvl = LEVELS[levelIndex];
+  return lvl ? lvl.table : null;
+}
+
+function playCustomOrProceduralMusic(table){
+  const customEl = document.getElementById('customTableMusic');
+  const custom = table != null ? customMusicURLs[table] : null;
+  if(custom){
+    stopTableMusicLoop();
+    if(gameMusicEl) gameMusicEl.pause();
+    if(customEl){
+      if(customEl.dataset.table !== String(table)){
+        customEl.src = custom.url;
+        customEl.dataset.table = String(table);
+      }
+      customEl.currentTime = customEl.currentTime || 0;
+      customEl.volume = 0.5 * masterVolume;
+      customEl.play().catch(()=>{});
+    }
+  } else {
+    if(customEl) customEl.pause();
+    startTableMusicLoop(currentTheme);
+    if(gameMusicEl){
+      gameMusicEl.currentTime = gameMusicEl.currentTime || 0;
+      gameMusicEl.play().catch(()=>{});
+    }
+  }
+}
+
 function playGameMusic(){
   gameMusicActive = true;
-  startTableMusicLoop(currentTheme);
-  if(!gameMusicEl) return;
-  gameMusicEl.currentTime = gameMusicEl.currentTime || 0;
-  gameMusicEl.play().catch(()=>{});
+  playCustomOrProceduralMusic(currentLevelTable());
 }
 
 function pauseGameMusic(){
   gameMusicActive = false;
   stopTableMusicLoop();
-  if(!gameMusicEl) return;
-  gameMusicEl.pause();
+  if(gameMusicEl) gameMusicEl.pause();
+  const customEl = document.getElementById('customTableMusic');
+  if(customEl) customEl.pause();
 }
 
 function playTone(freq, duration, type, delay, gainVal){
@@ -1332,6 +1443,150 @@ function stopTableMusicLoop(){
     musicLoopTimer = null;
   }
 }
+
+/* ===================== MÚSICA PERSONALIZADA POR TABLA ===================== */
+/* Los archivos subidos se guardan solo en este navegador/dispositivo (IndexedDB). */
+
+const MUSIC_DB_NAME = 'puenteTablasMusicaDB';
+const MUSIC_STORE = 'tableMusic';
+let musicDBPromise = null;
+let customMusicURLs = {}; // { [tabla]: { url, name } }
+
+function musicStorageSupported(){
+  return 'indexedDB' in window;
+}
+
+function openMusicDB(){
+  if(!musicStorageSupported()) return Promise.reject(new Error('IndexedDB no disponible'));
+  if(musicDBPromise) return musicDBPromise;
+  musicDBPromise = new Promise((resolve, reject)=>{
+    const req = indexedDB.open(MUSIC_DB_NAME, 1);
+    req.onupgradeneeded = (e)=>{
+      const db = e.target.result;
+      if(!db.objectStoreNames.contains(MUSIC_STORE)){
+        db.createObjectStore(MUSIC_STORE, { keyPath:'table' });
+      }
+    };
+    req.onsuccess = ()=> resolve(req.result);
+    req.onerror = ()=> reject(req.error);
+  });
+  return musicDBPromise;
+}
+
+async function saveCustomTableMusic(table, file){
+  const db = await openMusicDB();
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction(MUSIC_STORE, 'readwrite');
+    tx.objectStore(MUSIC_STORE).put({ table, blob:file, name:file.name });
+    tx.oncomplete = ()=> resolve();
+    tx.onerror = ()=> reject(tx.error);
+  });
+}
+
+async function deleteCustomTableMusic(table){
+  const db = await openMusicDB();
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction(MUSIC_STORE, 'readwrite');
+    tx.objectStore(MUSIC_STORE).delete(table);
+    tx.oncomplete = ()=> resolve();
+    tx.onerror = ()=> reject(tx.error);
+  });
+}
+
+async function getAllCustomTableMusic(){
+  const db = await openMusicDB();
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction(MUSIC_STORE, 'readonly');
+    const req = tx.objectStore(MUSIC_STORE).getAll();
+    req.onsuccess = ()=> resolve(req.result || []);
+    req.onerror = ()=> reject(req.error);
+  });
+}
+
+async function loadCustomMusicCache(){
+  if(!musicStorageSupported()) return;
+  try{
+    const all = await getAllCustomTableMusic();
+    all.forEach(item=>{
+      customMusicURLs[item.table] = { url: URL.createObjectURL(item.blob), name: item.name };
+    });
+  }catch(e){}
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function renderMusicConfigList(){
+  const wrap = document.getElementById('musicConfigList');
+  if(!wrap) return;
+  if(!musicStorageSupported()){
+    wrap.innerHTML = '<p style="color:var(--crack)">Tu navegador no permite guardar audios personalizados aquí.</p>';
+    return;
+  }
+  wrap.innerHTML = '';
+  for(let t=1;t<=10;t++){
+    const info = customMusicURLs[t];
+    const row = document.createElement('div');
+    row.className = 'music-config-row';
+    row.innerHTML =
+      '<div class="music-config-info">' +
+        '<div class="music-config-name">Tabla del ' + t + '</div>' +
+        '<div class="music-config-status">' + (info ? '🎧 ' + escapeHtml(info.name) : 'Melodía predeterminada') + '</div>' +
+      '</div>' +
+      '<div class="music-config-actions">' +
+        '<label class="music-upload-btn">Subir' +
+          '<input type="file" accept="audio/*" style="display:none" onchange="onMusicFileSelected(event, ' + t + ')">' +
+        '</label>' +
+        (info ? '<button class="music-remove-btn" onclick="removeCustomMusic(' + t + ')">Quitar</button>' : '') +
+      '</div>';
+    wrap.appendChild(row);
+  }
+}
+
+async function onMusicFileSelected(event, table){
+  const file = event.target.files && event.target.files[0];
+  if(!file) return;
+  try{
+    await saveCustomTableMusic(table, file);
+    if(customMusicURLs[table]) URL.revokeObjectURL(customMusicURLs[table].url);
+    customMusicURLs[table] = { url: URL.createObjectURL(file), name: file.name };
+    renderMusicConfigList();
+    if(gameMusicActive && currentLevelTable() === table){
+      playCustomOrProceduralMusic(table);
+    }
+  }catch(e){
+    alert('No se pudo guardar este audio en tu dispositivo. Intenta con otro archivo.');
+  }
+  event.target.value = '';
+}
+
+async function removeCustomMusic(table){
+  try{ await deleteCustomTableMusic(table); }catch(e){}
+  if(customMusicURLs[table]){
+    URL.revokeObjectURL(customMusicURLs[table].url);
+    delete customMusicURLs[table];
+  }
+  renderMusicConfigList();
+  if(gameMusicActive && currentLevelTable() === table){
+    playCustomOrProceduralMusic(table);
+  }
+}
+
+function openMusicConfigFromStart(){
+  document.getElementById('startOverlay').classList.remove('show');
+  renderMusicConfigList();
+  document.getElementById('musicConfigOverlay').classList.add('show');
+}
+
+function closeMusicConfig(){
+  document.getElementById('musicConfigOverlay').classList.remove('show');
+  document.getElementById('startOverlay').classList.add('show');
+}
+
+/* ================= FIN MÚSICA PERSONALIZADA POR TABLA ================= */
 
 function playCorrectSound(){
   const f = (currentTheme && currentTheme.freqs) || [523.25,659.25,783.99];
@@ -2363,6 +2618,7 @@ renderScore();
 renderLevelTag();
 document.getElementById('volumeSlider').value = Math.round(masterVolume * 100);
 initAccess();
+loadCustomMusicCache();
 </script>
 
 </body>

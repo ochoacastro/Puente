@@ -608,6 +608,45 @@
     font-size:12px;
     cursor:pointer;
   }
+  .video-config-row{
+    display:flex;
+    flex-direction:column;
+    align-items:stretch;
+    gap:6px;
+  }
+  .video-config-input{
+    width:100%;
+    background:#12121a;
+    border:1px solid rgba(255,255,255,0.12);
+    border-radius:8px;
+    padding:8px 10px;
+    color:var(--text);
+    font-size:12px;
+  }
+  .video-config-input:focus{
+    outline:none;
+    border-color:var(--teal);
+  }
+  .study-video-wrap{
+    display:none;
+    width:100%;
+    max-width:340px;
+    margin:0 auto 14px;
+  }
+  .study-video-frame{
+    position:relative;
+    width:100%;
+    padding-top:56.25%;
+    border-radius:12px;
+    overflow:hidden;
+    background:#000;
+  }
+  .study-video-frame iframe{
+    position:absolute;
+    top:0; left:0;
+    width:100%; height:100%;
+    border:0;
+  }
   .leaderboard-list li{
     display:flex;
     justify-content:space-between;
@@ -997,6 +1036,7 @@
     <button class="btn teal" style="margin-top:10px" onclick="showLeaderboardFromStart()">Ver puntuaciones anteriores</button>
     <button class="btn gold" style="margin-top:10px" onclick="showRecordsFromStart()">Ver récords de tiempo</button>
     <button class="btn" style="margin-top:10px; background:rgba(255,255,255,0.08); color:var(--muted); border:1px solid rgba(255,255,255,0.12);" onclick="openMusicConfigFromStart()">🎵 Música por tabla</button>
+    <button class="btn" style="margin-top:10px; background:rgba(255,255,255,0.08); color:var(--muted); border:1px solid rgba(255,255,255,0.12);" onclick="openVideoConfigFromStart()">🎬 Videos por tabla</button>
     <div style="margin-top:14px">
       <a href="#" onclick="logoutSession(); return false;" style="color:var(--muted); font-size:12px; text-decoration:underline;">Cerrar sesión</a>
     </div>
@@ -1035,6 +1075,7 @@
     <div class="symbol">📖</div>
     <h2 id="studyTitle" style="color:var(--gold)">TABLA DEL 2</h2>
     <p style="margin-bottom:10px">Repásala antes de cruzar el puente</p>
+    <div class="study-video-wrap" id="studyVideoWrap"></div>
     <div class="study-grid" id="studyGrid"></div>
     <button class="btn gold" onclick="finishStudy()">Empezar a cruzar</button>
   </div>
@@ -1097,6 +1138,15 @@
     <p style="margin-bottom:6px">Sube un audio desde tu celular para cada tabla. Se guarda solo en este dispositivo.</p>
     <div class="music-config-list" id="musicConfigList"></div>
     <button class="btn" style="margin-top:10px" onclick="closeMusicConfig()">Volver</button>
+  </div>
+
+  <!-- Overlay: configuración de video de YouTube por tabla -->
+  <div class="overlay" id="videoConfigOverlay">
+    <div class="symbol">🎬</div>
+    <h2 style="color:var(--teal)">VIDEOS POR TABLA</h2>
+    <p style="margin-bottom:6px">Pega el link de YouTube que quieres que aparezca al repasar cada tabla.</p>
+    <div class="music-config-list" id="videoConfigList"></div>
+    <button class="btn" style="margin-top:10px" onclick="closeVideoConfig()">Volver</button>
   </div>
 
   <!-- Overlay: cinemática de salto / caída del personaje -->
@@ -1371,7 +1421,6 @@ function playCustomOrProceduralMusic(table){
   const customEl = document.getElementById('customTableMusic');
   const custom = table != null ? customMusicURLs[table] : null;
   if(custom){
-    stopTableMusicLoop();
     if(gameMusicEl) gameMusicEl.pause();
     if(customEl){
       if(customEl.dataset.table !== String(table)){
@@ -1384,7 +1433,6 @@ function playCustomOrProceduralMusic(table){
     }
   } else {
     if(customEl) customEl.pause();
-    startTableMusicLoop(currentTheme);
     if(gameMusicEl){
       gameMusicEl.currentTime = gameMusicEl.currentTime || 0;
       gameMusicEl.play().catch(()=>{});
@@ -1399,7 +1447,6 @@ function playGameMusic(){
 
 function pauseGameMusic(){
   gameMusicActive = false;
-  stopTableMusicLoop();
   if(gameMusicEl) gameMusicEl.pause();
   const customEl = document.getElementById('customTableMusic');
   if(customEl) customEl.pause();
@@ -1420,29 +1467,7 @@ function playTone(freq, duration, type, delay, gainVal){
   osc.stop(startTime + duration + 0.02);
 }
 
-let musicLoopTimer = null;
 
-function startTableMusicLoop(theme){
-  stopTableMusicLoop();
-  if(!theme) return;
-  const [a, b, c] = theme.freqs;
-  const pattern = [a, b, c, b, a/2, b, c/2, b];
-  let i = 0;
-  const stepMs = 380;
-  function playStep(){
-    playTone(pattern[i % pattern.length], 0.32, theme.wave, 0, 0.045);
-    i++;
-  }
-  playStep();
-  musicLoopTimer = setInterval(playStep, stepMs);
-}
-
-function stopTableMusicLoop(){
-  if(musicLoopTimer){
-    clearInterval(musicLoopTimer);
-    musicLoopTimer = null;
-  }
-}
 
 /* ===================== MÚSICA PERSONALIZADA POR TABLA ===================== */
 /* Los archivos subidos se guardan solo en este navegador/dispositivo (IndexedDB). */
@@ -1587,6 +1612,112 @@ function closeMusicConfig(){
 }
 
 /* ================= FIN MÚSICA PERSONALIZADA POR TABLA ================= */
+
+/* ===================== VIDEO DE YOUTUBE POR TABLA ===================== */
+
+const VIDEO_LINKS_KEY = 'puenteTablasVideosYoutube';
+let tableVideoLinks = {};
+
+function loadVideoLinks(){
+  try{
+    const raw = localStorage.getItem(VIDEO_LINKS_KEY);
+    tableVideoLinks = raw ? JSON.parse(raw) : {};
+  }catch(e){
+    tableVideoLinks = {};
+  }
+}
+
+function saveVideoLinksToStorage(){
+  try{ localStorage.setItem(VIDEO_LINKS_KEY, JSON.stringify(tableVideoLinks)); }catch(e){}
+}
+
+function extractYouTubeId(url){
+  if(!url) return null;
+  const trimmed = url.trim();
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtube\.com\/embed\/|youtube\.com\/shorts\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/
+  ];
+  for(const p of patterns){
+    const m = trimmed.match(p);
+    if(m) return m[1];
+  }
+  if(/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
+  return null;
+}
+
+function renderStudyVideo(table){
+  const wrap = document.getElementById('studyVideoWrap');
+  if(!wrap) return;
+  const videoId = tableVideoLinks[table];
+  if(videoId){
+    wrap.innerHTML =
+      '<div class="study-video-frame"><iframe src="https://www.youtube.com/embed/' + videoId +
+      '" title="Video tabla del ' + table + '" frameborder="0" ' +
+      'allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" ' +
+      'allowfullscreen></iframe></div>';
+    wrap.style.display = 'block';
+  } else {
+    wrap.innerHTML = '';
+    wrap.style.display = 'none';
+  }
+}
+
+function renderVideoConfigList(){
+  const wrap = document.getElementById('videoConfigList');
+  if(!wrap) return;
+  wrap.innerHTML = '';
+  for(let t=1;t<=10;t++){
+    const videoId = tableVideoLinks[t];
+    const currentUrl = videoId ? ('https://youtu.be/' + videoId) : '';
+    const row = document.createElement('div');
+    row.className = 'music-config-row video-config-row';
+    row.innerHTML =
+      '<div class="music-config-name">Tabla del ' + t + '</div>' +
+      '<input type="text" class="video-config-input" id="videoInput_' + t + '" ' +
+      'placeholder="https://youtube.com/watch?v=..." value="' + escapeHtml(currentUrl) + '">' +
+      '<div class="music-config-actions">' +
+        '<button class="music-upload-btn" onclick="saveTableVideo(' + t + ')">Guardar</button>' +
+        (videoId ? '<button class="music-remove-btn" onclick="removeTableVideo(' + t + ')">Quitar</button>' : '') +
+      '</div>';
+    wrap.appendChild(row);
+  }
+}
+
+function saveTableVideo(table){
+  const input = document.getElementById('videoInput_' + table);
+  const url = input ? input.value.trim() : '';
+  if(!url){ alert('Pega un link de YouTube primero.'); return; }
+  const videoId = extractYouTubeId(url);
+  if(!videoId){ alert('No reconozco ese link de YouTube. Copia el link completo del video.'); return; }
+  tableVideoLinks[table] = videoId;
+  saveVideoLinksToStorage();
+  renderVideoConfigList();
+  if(LEVELS[levelIndex] && LEVELS[levelIndex].table === table && document.getElementById('studyOverlay').classList.contains('show')){
+    renderStudyVideo(table);
+  }
+}
+
+function removeTableVideo(table){
+  delete tableVideoLinks[table];
+  saveVideoLinksToStorage();
+  renderVideoConfigList();
+  if(LEVELS[levelIndex] && LEVELS[levelIndex].table === table && document.getElementById('studyOverlay').classList.contains('show')){
+    renderStudyVideo(table);
+  }
+}
+
+function openVideoConfigFromStart(){
+  document.getElementById('startOverlay').classList.remove('show');
+  renderVideoConfigList();
+  document.getElementById('videoConfigOverlay').classList.add('show');
+}
+
+function closeVideoConfig(){
+  document.getElementById('videoConfigOverlay').classList.remove('show');
+  document.getElementById('startOverlay').classList.add('show');
+}
+
+/* ================= FIN VIDEO DE YOUTUBE POR TABLA ================= */
 
 function playCorrectSound(){
   const f = (currentTheme && currentTheme.freqs) || [523.25,659.25,783.99];
@@ -1816,6 +1947,7 @@ function continueAfterAnswer(){
 
 function renderStudyGrid(table){
   document.getElementById('studyTitle').textContent = `TABLA DEL ${table}`;
+  renderStudyVideo(table);
   const grid = document.getElementById('studyGrid');
   grid.innerHTML = '';
   for(let n=1;n<=10;n++){
@@ -2619,6 +2751,7 @@ renderLevelTag();
 document.getElementById('volumeSlider').value = Math.round(masterVolume * 100);
 initAccess();
 loadCustomMusicCache();
+loadVideoLinks();
 </script>
 
 </body>

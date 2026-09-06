@@ -1120,6 +1120,9 @@ function applyTableTheme(table){
     `radial-gradient(circle at 20% -10%, rgba(${theme.accent1},0.14), transparent 45%),` +
     `radial-gradient(circle at 90% 110%, rgba(${theme.accent2},0.12), transparent 45%),` +
     theme.bg;
+  if(gameMusicActive){
+    startTableMusicLoop(theme);
+  }
 }
 
 let levelIndex = 0;
@@ -1274,13 +1277,19 @@ function pauseMenuMusic(){
 const gameMusicEl = document.getElementById('gameMusic');
 if(gameMusicEl) gameMusicEl.volume = 0.35 * masterVolume;
 
+let gameMusicActive = false;
+
 function playGameMusic(){
+  gameMusicActive = true;
+  startTableMusicLoop(currentTheme);
   if(!gameMusicEl) return;
   gameMusicEl.currentTime = gameMusicEl.currentTime || 0;
   gameMusicEl.play().catch(()=>{});
 }
 
 function pauseGameMusic(){
+  gameMusicActive = false;
+  stopTableMusicLoop();
   if(!gameMusicEl) return;
   gameMusicEl.pause();
 }
@@ -1298,6 +1307,30 @@ function playTone(freq, duration, type, delay, gainVal){
   gain.connect(ctx.destination);
   osc.start(startTime);
   osc.stop(startTime + duration + 0.02);
+}
+
+let musicLoopTimer = null;
+
+function startTableMusicLoop(theme){
+  stopTableMusicLoop();
+  if(!theme) return;
+  const [a, b, c] = theme.freqs;
+  const pattern = [a, b, c, b, a/2, b, c/2, b];
+  let i = 0;
+  const stepMs = 380;
+  function playStep(){
+    playTone(pattern[i % pattern.length], 0.32, theme.wave, 0, 0.045);
+    i++;
+  }
+  playStep();
+  musicLoopTimer = setInterval(playStep, stepMs);
+}
+
+function stopTableMusicLoop(){
+  if(musicLoopTimer){
+    clearInterval(musicLoopTimer);
+    musicLoopTimer = null;
+  }
 }
 
 function playCorrectSound(){

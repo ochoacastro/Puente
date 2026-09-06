@@ -627,6 +627,14 @@
     outline:none;
     border-color:var(--teal);
   }
+  .video-config-times{
+    display:flex;
+    gap:6px;
+  }
+  .video-time-input{
+    flex:1;
+    text-align:center;
+  }
   .study-video-wrap{
     display:none;
     width:100%;
@@ -1144,7 +1152,7 @@
   <div class="overlay" id="videoConfigOverlay">
     <div class="symbol">🎬</div>
     <h2 style="color:var(--teal)">VIDEOS POR TABLA</h2>
-    <p style="margin-bottom:6px">Pega el link de YouTube que quieres que aparezca al repasar cada tabla. Puedes agregar <b>?start=99&end=121</b> para repetir en bucle solo ese fragmento.</p>
+    <p style="margin-bottom:6px">Pega el link normal del video de YouTube y define el minuto de inicio y de fin (ej: 1:39) para repetir ese fragmento en bucle.</p>
     <div class="music-config-list" id="videoConfigList"></div>
     <button class="btn" style="margin-top:10px" onclick="closeVideoConfig()">Volver</button>
   </div>
@@ -1631,25 +1639,41 @@ function saveVideoLinksToStorage(){
   try{ localStorage.setItem(VIDEO_LINKS_KEY, JSON.stringify(tableVideoLinks)); }catch(e){}
 }
 
-function extractYouTubeConfig(url){
+function extractYouTubeId(url){
   if(!url) return null;
   const trimmed = url.trim();
   const patterns = [
     /(?:youtube\.com\/watch\?v=|youtube\.com\/embed\/|youtube\.com\/shorts\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/
   ];
-  let id = null;
   for(const p of patterns){
     const m = trimmed.match(p);
-    if(m){ id = m[1]; break; }
+    if(m) return m[1];
   }
-  if(!id && /^[a-zA-Z0-9_-]{11}$/.test(trimmed)) id = trimmed;
-  if(!id) return null;
-  let start = null, end = null;
-  const startMatch = trimmed.match(/[?&](?:start|t)=(\d+)s?/);
-  if(startMatch) start = parseInt(startMatch[1], 10);
-  const endMatch = trimmed.match(/[?&]end=(\d+)s?/);
-  if(endMatch) end = parseInt(endMatch[1], 10);
-  return { id: id, start: start, end: end };
+  if(/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
+  return null;
+}
+
+function parseTimeToSeconds(value){
+  if(value === null || value === undefined) return null;
+  const trimmed = String(value).trim();
+  if(!trimmed) return null;
+  if(trimmed.indexOf(':') !== -1){
+    const parts = trimmed.split(':').map(function(p){ return parseInt(p, 10); });
+    if(parts.some(isNaN)) return null;
+    let secs = 0;
+    for(const p of parts){ secs = secs * 60 + p; }
+    return secs;
+  }
+  const n = parseInt(trimmed, 10);
+  return isNaN(n) ? null : n;
+}
+
+function formatSecondsToTime(secs){
+  if(secs === null || secs === undefined) return '';
+  secs = Math.max(0, Math.floor(secs));
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return m + ':' + (s < 10 ? '0' : '') + s;
 }
 
 function normalizeVideoConfig(stored){
@@ -1658,28 +1682,101 @@ function normalizeVideoConfig(stored){
   return stored;
 }
 
-function buildEmbedSrc(cfg){
-  if(!cfg || !cfg.id) return '';
-  const params = [];
-  if(cfg.start !== null && cfg.start !== undefined) params.push('start=' + cfg.start);
-  if(cfg.end !== null && cfg.end !== undefined) params.push('end=' + cfg.end);
-  params.push('autoplay=1');
-  params.push('loop=1');
-  params.push('playlist=' + cfg.id);
-  return 'https://www.youtube.com/embed/' + cfg.id + '?' + params.join('&');
+/* --- Motor de reproducción con la API real de YouTube (loop exacto de un fragmento) --- */
+let studyYtPlayer = null;
+let studyYtLoopTimer = null;
+let studyYtGen = 0;
+let studyYtApiRequested = false;
+let studyYtPendingConfig = null;
+
+function ensureYouTubeApi(){
+  if(window.YT && window.YT.Player) return true;
+  if(!studyYtApiRequested){
+    studyYtApiRequested = true;
+    const tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    document.head.appendChild(tag);
+  }
+  return false;
 }
+
+function onYouTubeIframeAPIReady(){
+  if(studyYtPendingConfig){
+    const cfg = studyYtPendingConfig;
+    studyYtPendingConfig = null;
+    startStudyPlayer(cfg);
+  }
+}
+
+function queueStudyPlayer(cfg){
+  if(ensureYouTubeApi()){
+    startStudyPlayer(cfg);
+  } else {
+    studyYtPendingConfig = cfg;
+  }
+}
+
+function scheduleStudyLoopCheck(gen, cfg){
+  if(studyYtLoopTimer) clearTimeout(studyYtLoopTimer);
+  studyYtLoopTimer = setTimeout(function(){
+    if(gen !== studyYtGen || !studyYtPlayer) return;
+    try{
+      const t = studyYtPlayer.getCurrentTime();
+      if(t >= cfg.end){
+        studyYtPlayer.seekTo(cfg.start || 0, true);
+        studyYtPlayer.playVideo();
+      }
+    }catch(e){}
+    scheduleStudyLoopCheck(gen, cfg);
+  }, 200);
+}
+
+function startStudyPlayer(cfg){
+  const gen = ++studyYtGen;
+  const startSec = cfg.start || 0;
+  const playerVars = { start: startSec, controls: 1, rel: 0, modestbranding: 1, playsinline: 1 };
+  if(!cfg.end){ playerVars.loop = 1; playerVars.playlist = cfg.id; }
+  studyYtPlayer = new YT.Player('studyYtTarget', {
+    width: '100%',
+    height: '100%',
+    videoId: cfg.id,
+    playerVars: playerVars,
+    events: {
+      onReady: function(e){
+        if(gen !== studyYtGen) return;
+        e.target.seekTo(startSec, true);
+        e.target.playVideo();
+      },
+      onStateChange: function(ev){
+        if(gen !== studyYtGen) return;
+        if(cfg.end && ev.data === YT.PlayerState.PLAYING){
+          scheduleStudyLoopCheck(gen, cfg);
+        }
+      }
+    }
+  });
+}
+
+function stopStudyPlayer(){
+  studyYtGen++;
+  if(studyYtLoopTimer){ clearTimeout(studyYtLoopTimer); studyYtLoopTimer = null; }
+  if(studyYtPlayer){
+    try{ studyYtPlayer.destroy(); }catch(e){}
+    studyYtPlayer = null;
+  }
+  studyYtPendingConfig = null;
+}
+/* --- Fin motor de reproducción --- */
 
 function renderStudyVideo(table){
   const wrap = document.getElementById('studyVideoWrap');
   if(!wrap) return;
   const cfg = normalizeVideoConfig(tableVideoLinks[table]);
+  stopStudyPlayer();
   if(cfg && cfg.id){
-    wrap.innerHTML =
-      '<div class="study-video-frame"><iframe src="' + buildEmbedSrc(cfg) +
-      '" title="Video tabla del ' + table + '" frameborder="0" ' +
-      'allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" ' +
-      'allowfullscreen></iframe></div>';
+    wrap.innerHTML = '<div class="study-video-frame"><div id="studyYtTarget"></div></div>';
     wrap.style.display = 'block';
+    queueStudyPlayer(cfg);
   } else {
     wrap.innerHTML = '';
     wrap.style.display = 'none';
@@ -1692,13 +1789,21 @@ function renderVideoConfigList(){
   wrap.innerHTML = '';
   for(let t=1;t<=10;t++){
     const cfg = normalizeVideoConfig(tableVideoLinks[t]);
-    const currentUrl = (cfg && cfg.id) ? buildEmbedSrc(cfg) : '';
+    const currentLink = (cfg && cfg.id) ? ('https://youtu.be/' + cfg.id) : '';
+    const currentStart = (cfg && cfg.start !== null && cfg.start !== undefined) ? formatSecondsToTime(cfg.start) : '';
+    const currentEnd = (cfg && cfg.end !== null && cfg.end !== undefined) ? formatSecondsToTime(cfg.end) : '';
     const row = document.createElement('div');
     row.className = 'music-config-row video-config-row';
     row.innerHTML =
       '<div class="music-config-name">Tabla del ' + t + '</div>' +
-      '<input type="text" class="video-config-input" id="videoInput_' + t + '" ' +
-      'placeholder="https://www.youtube.com/embed/ID?start=99&end=121" value="' + escapeHtml(currentUrl) + '">' +
+      '<input type="text" class="video-config-input" id="videoLinkInput_' + t + '" ' +
+      'placeholder="https://youtube.com/watch?v=..." value="' + escapeHtml(currentLink) + '">' +
+      '<div class="video-config-times">' +
+        '<input type="text" class="video-config-input video-time-input" id="videoStartInput_' + t + '" ' +
+        'placeholder="Inicio (1:39)" value="' + escapeHtml(currentStart) + '">' +
+        '<input type="text" class="video-config-input video-time-input" id="videoEndInput_' + t + '" ' +
+        'placeholder="Fin (2:01)" value="' + escapeHtml(currentEnd) + '">' +
+      '</div>' +
       '<div class="music-config-actions">' +
         '<button class="music-upload-btn" onclick="saveTableVideo(' + t + ')">Guardar</button>' +
         ((cfg && cfg.id) ? '<button class="music-remove-btn" onclick="removeTableVideo(' + t + ')">Quitar</button>' : '') +
@@ -1708,12 +1813,17 @@ function renderVideoConfigList(){
 }
 
 function saveTableVideo(table){
-  const input = document.getElementById('videoInput_' + table);
-  const url = input ? input.value.trim() : '';
-  if(!url){ alert('Pega un link de YouTube primero.'); return; }
-  const cfg = extractYouTubeConfig(url);
-  if(!cfg){ alert('No reconozco ese link de YouTube. Copia el link completo del video.'); return; }
-  tableVideoLinks[table] = cfg;
+  const linkInput = document.getElementById('videoLinkInput_' + table);
+  const startInput = document.getElementById('videoStartInput_' + table);
+  const endInput = document.getElementById('videoEndInput_' + table);
+  const url = linkInput ? linkInput.value.trim() : '';
+  if(!url){ alert('Pega el link normal del video primero.'); return; }
+  const id = extractYouTubeId(url);
+  if(!id){ alert('No reconozco ese link de YouTube. Copia el link completo del video.'); return; }
+  const start = parseTimeToSeconds(startInput ? startInput.value : '');
+  const end = parseTimeToSeconds(endInput ? endInput.value : '');
+  if(start !== null && end !== null && end <= start){ alert('El minuto final debe ser mayor que el de inicio.'); return; }
+  tableVideoLinks[table] = { id: id, start: start, end: end };
   saveVideoLinksToStorage();
   renderVideoConfigList();
   if(LEVELS[levelIndex] && LEVELS[levelIndex].table === table && document.getElementById('studyOverlay').classList.contains('show')){
@@ -2013,6 +2123,7 @@ function showStudyThenBegin(){
 
 function finishStudy(){
   if('speechSynthesis' in window) window.speechSynthesis.cancel();
+  stopStudyPlayer();
   document.getElementById('studyOverlay').classList.remove('show');
   if(pendingLevelStart){
     pendingLevelStart();

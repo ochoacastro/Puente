@@ -1144,7 +1144,7 @@
   <div class="overlay" id="videoConfigOverlay">
     <div class="symbol">🎬</div>
     <h2 style="color:var(--teal)">VIDEOS POR TABLA</h2>
-    <p style="margin-bottom:6px">Pega el link de YouTube que quieres que aparezca al repasar cada tabla.</p>
+    <p style="margin-bottom:6px">Pega el link de YouTube que quieres que aparezca al repasar cada tabla. Puedes agregar <b>?start=99&end=121</b> para repetir en bucle solo ese fragmento.</p>
     <div class="music-config-list" id="videoConfigList"></div>
     <button class="btn" style="margin-top:10px" onclick="closeVideoConfig()">Volver</button>
   </div>
@@ -1631,27 +1631,51 @@ function saveVideoLinksToStorage(){
   try{ localStorage.setItem(VIDEO_LINKS_KEY, JSON.stringify(tableVideoLinks)); }catch(e){}
 }
 
-function extractYouTubeId(url){
+function extractYouTubeConfig(url){
   if(!url) return null;
   const trimmed = url.trim();
   const patterns = [
     /(?:youtube\.com\/watch\?v=|youtube\.com\/embed\/|youtube\.com\/shorts\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/
   ];
+  let id = null;
   for(const p of patterns){
     const m = trimmed.match(p);
-    if(m) return m[1];
+    if(m){ id = m[1]; break; }
   }
-  if(/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
-  return null;
+  if(!id && /^[a-zA-Z0-9_-]{11}$/.test(trimmed)) id = trimmed;
+  if(!id) return null;
+  let start = null, end = null;
+  const startMatch = trimmed.match(/[?&](?:start|t)=(\d+)s?/);
+  if(startMatch) start = parseInt(startMatch[1], 10);
+  const endMatch = trimmed.match(/[?&]end=(\d+)s?/);
+  if(endMatch) end = parseInt(endMatch[1], 10);
+  return { id: id, start: start, end: end };
+}
+
+function normalizeVideoConfig(stored){
+  if(!stored) return null;
+  if(typeof stored === 'string') return { id: stored, start: null, end: null };
+  return stored;
+}
+
+function buildEmbedSrc(cfg){
+  if(!cfg || !cfg.id) return '';
+  const params = [];
+  if(cfg.start !== null && cfg.start !== undefined) params.push('start=' + cfg.start);
+  if(cfg.end !== null && cfg.end !== undefined) params.push('end=' + cfg.end);
+  params.push('autoplay=1');
+  params.push('loop=1');
+  params.push('playlist=' + cfg.id);
+  return 'https://www.youtube.com/embed/' + cfg.id + '?' + params.join('&');
 }
 
 function renderStudyVideo(table){
   const wrap = document.getElementById('studyVideoWrap');
   if(!wrap) return;
-  const videoId = tableVideoLinks[table];
-  if(videoId){
+  const cfg = normalizeVideoConfig(tableVideoLinks[table]);
+  if(cfg && cfg.id){
     wrap.innerHTML =
-      '<div class="study-video-frame"><iframe src="https://www.youtube.com/embed/' + videoId +
+      '<div class="study-video-frame"><iframe src="' + buildEmbedSrc(cfg) +
       '" title="Video tabla del ' + table + '" frameborder="0" ' +
       'allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" ' +
       'allowfullscreen></iframe></div>';
@@ -1667,17 +1691,17 @@ function renderVideoConfigList(){
   if(!wrap) return;
   wrap.innerHTML = '';
   for(let t=1;t<=10;t++){
-    const videoId = tableVideoLinks[t];
-    const currentUrl = videoId ? ('https://youtu.be/' + videoId) : '';
+    const cfg = normalizeVideoConfig(tableVideoLinks[t]);
+    const currentUrl = (cfg && cfg.id) ? buildEmbedSrc(cfg) : '';
     const row = document.createElement('div');
     row.className = 'music-config-row video-config-row';
     row.innerHTML =
       '<div class="music-config-name">Tabla del ' + t + '</div>' +
       '<input type="text" class="video-config-input" id="videoInput_' + t + '" ' +
-      'placeholder="https://youtube.com/watch?v=..." value="' + escapeHtml(currentUrl) + '">' +
+      'placeholder="https://www.youtube.com/embed/ID?start=99&end=121" value="' + escapeHtml(currentUrl) + '">' +
       '<div class="music-config-actions">' +
         '<button class="music-upload-btn" onclick="saveTableVideo(' + t + ')">Guardar</button>' +
-        (videoId ? '<button class="music-remove-btn" onclick="removeTableVideo(' + t + ')">Quitar</button>' : '') +
+        ((cfg && cfg.id) ? '<button class="music-remove-btn" onclick="removeTableVideo(' + t + ')">Quitar</button>' : '') +
       '</div>';
     wrap.appendChild(row);
   }
@@ -1687,9 +1711,9 @@ function saveTableVideo(table){
   const input = document.getElementById('videoInput_' + table);
   const url = input ? input.value.trim() : '';
   if(!url){ alert('Pega un link de YouTube primero.'); return; }
-  const videoId = extractYouTubeId(url);
-  if(!videoId){ alert('No reconozco ese link de YouTube. Copia el link completo del video.'); return; }
-  tableVideoLinks[table] = videoId;
+  const cfg = extractYouTubeConfig(url);
+  if(!cfg){ alert('No reconozco ese link de YouTube. Copia el link completo del video.'); return; }
+  tableVideoLinks[table] = cfg;
   saveVideoLinksToStorage();
   renderVideoConfigList();
   if(LEVELS[levelIndex] && LEVELS[levelIndex].table === table && document.getElementById('studyOverlay').classList.contains('show')){

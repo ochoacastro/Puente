@@ -317,6 +317,21 @@
   .token.jump .r-arm,
   .token.fall .r-arm{ animation:none; transform:rotate(0deg); }
 
+  /* ---- Variantes de personaje, una por tabla de multiplicar ---- */
+  .runner.char-2 .r-head{ border-radius:30%; }
+  .runner.char-2 .r-body{ border-radius:2px; }
+  .runner.char-3 .r-head{ border-radius:50% 50% 50% 0; transform:rotate(45deg); }
+  .runner.char-4 .r-head{ clip-path:polygon(50% 0%, 100% 100%, 0% 100%); border-radius:0; }
+  .runner.char-5 .r-head{ border-radius:50%; width:13px; height:9px; top:1px; }
+  .runner.char-6 .r-body{ border-radius:50%; width:10px; height:10px; top:11px; left:5px; }
+  .runner.char-7 .r-head{
+    clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);
+    border-radius:0; width:14px; height:14px; left:3px;
+  }
+  .runner.char-8 .r-head{ border-radius:50%; box-shadow:inset -2px -2px 0 rgba(0,0,0,0.2), 0 0 6px var(--gold); }
+  .runner.char-9 .r-body{ border-radius:4px 4px 8px 8px; width:9px; }
+  .runner.char-10 .r-head{ width:12px; height:12px; border-radius:20% 50% 20% 50%; }
+
   .question-card{
     background:var(--panel);
     border-radius:16px;
@@ -967,8 +982,9 @@
     <h2 style="color:var(--teal)">¡PUENTE CRUZADO!</h2>
     <p id="levelCompleteText"></p>
     <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:6px;">
-      <button class="btn teal" id="levelCompleteNextBtn" onclick="nextLevel()">Siguiente puente</button>
       <button class="btn" onclick="exitFromLevelComplete()">Salir</button>
+      <button class="btn gold" onclick="restartCurrentLevel()">Reiniciar</button>
+      <button class="btn teal" id="levelCompleteNextBtn" onclick="nextLevel()">Siguiente puente</button>
     </div>
   </div>
 
@@ -1076,6 +1092,36 @@ TABLES.forEach(t=>{
 });
 const FULL_LEVELS = LEVELS.slice();
 
+const TABLE_THEMES = {
+  1:  { bg:'#0a0a12', bg2:'#141428', pink:'#ff2f6e', pinkDim:'#7a1836', teal:'#00d2b4', gold:'#ffcc33', accent1:'255,47,110',  accent2:'0,210,180',   freqs:[523.25,659.25,783.99], wave:'triangle', char:'char-1'  },
+  2:  { bg:'#0a0f14', bg2:'#0f1b28', pink:'#2fb8ff', pinkDim:'#164a66', teal:'#7effc4', gold:'#ffe066', accent1:'47,184,255',  accent2:'126,255,196', freqs:[440,554.37,659.25],    wave:'sine',     char:'char-2'  },
+  3:  { bg:'#12090f', bg2:'#241023', pink:'#ff5fa2', pinkDim:'#7a2a52', teal:'#c77dff', gold:'#ffd166', accent1:'255,95,162',  accent2:'199,125,255', freqs:[493.88,622.25,739.99], wave:'triangle', char:'char-3'  },
+  4:  { bg:'#0a120c', bg2:'#0f2216', pink:'#ffb703', pinkDim:'#7a5502', teal:'#5ee08c', gold:'#eaff5e', accent1:'255,183,3',   accent2:'94,224,140',  freqs:[349.23,440,523.25],    wave:'square',   char:'char-4'  },
+  5:  { bg:'#120a08', bg2:'#26140d', pink:'#ff6b35', pinkDim:'#7a3116', teal:'#ffd23f', gold:'#ff9f1c', accent1:'255,107,53',  accent2:'255,210,63',  freqs:[392,493.88,587.33],    wave:'sawtooth', char:'char-5'  },
+  6:  { bg:'#08101a', bg2:'#0d1f33', pink:'#4cc9f0', pinkDim:'#1b4d66', teal:'#4361ee', gold:'#f72585', accent1:'76,201,240',  accent2:'67,97,238',   freqs:[466.16,587.33,698.46], wave:'sine',     char:'char-6'  },
+  7:  { bg:'#090a14', bg2:'#151632', pink:'#8a5cff', pinkDim:'#3e2c7a', teal:'#5ee8ff', gold:'#ffcc33', accent1:'138,92,255',  accent2:'94,232,255',  freqs:[587.33,739.99,880],    wave:'triangle', char:'char-7'  },
+  8:  { bg:'#100a12', bg2:'#1d0f26', pink:'#b983ff', pinkDim:'#5a3d80', teal:'#ff8fab', gold:'#ffe5ec', accent1:'185,131,255', accent2:'255,143,171', freqs:[622.25,783.99,932.33], wave:'square',   char:'char-8'  },
+  9:  { bg:'#0a1210', bg2:'#0f231d', pink:'#06d6a0', pinkDim:'#036b50', teal:'#118ab2', gold:'#ffd166', accent1:'6,214,160',   accent2:'17,138,178',  freqs:[659.25,830.61,987.77], wave:'sine',     char:'char-9'  },
+  10: { bg:'#12070a', bg2:'#260d14', pink:'#ef476f', pinkDim:'#7a2338', teal:'#ffd166', gold:'#06d6a0', accent1:'239,71,111',  accent2:'255,209,102', freqs:[698.46,880,1046.5],    wave:'triangle', char:'char-10' }
+};
+let currentTheme = TABLE_THEMES[1];
+
+function applyTableTheme(table){
+  const theme = TABLE_THEMES[table] || TABLE_THEMES[1];
+  currentTheme = theme;
+  const root = document.documentElement.style;
+  root.setProperty('--bg', theme.bg);
+  root.setProperty('--bg2', theme.bg2);
+  root.setProperty('--pink', theme.pink);
+  root.setProperty('--pink-dim', theme.pinkDim);
+  root.setProperty('--teal', theme.teal);
+  root.setProperty('--gold', theme.gold);
+  document.body.style.background =
+    `radial-gradient(circle at 20% -10%, rgba(${theme.accent1},0.14), transparent 45%),` +
+    `radial-gradient(circle at 90% 110%, rgba(${theme.accent2},0.12), transparent 45%),` +
+    theme.bg;
+}
+
 let levelIndex = 0;
 let isPracticeMode = false;
 let practiceTable = null;
@@ -1167,7 +1213,7 @@ function renderLevelTag(){
 
 function makeRunnerEl(){
   const runner = document.createElement('div');
-  runner.className = 'runner';
+  runner.className = 'runner' + (currentTheme && currentTheme.char ? ' ' + currentTheme.char : '');
   runner.innerHTML =
     '<div class="r-head"></div>' +
     '<div class="r-body"></div>' +
@@ -1255,9 +1301,11 @@ function playTone(freq, duration, type, delay, gainVal){
 }
 
 function playCorrectSound(){
-  playTone(523.25, 0.12, 'triangle', 0, 0.18);
-  playTone(659.25, 0.12, 'triangle', 0.1, 0.18);
-  playTone(783.99, 0.18, 'triangle', 0.2, 0.18);
+  const f = (currentTheme && currentTheme.freqs) || [523.25,659.25,783.99];
+  const wave = (currentTheme && currentTheme.wave) || 'triangle';
+  playTone(f[0], 0.12, wave, 0, 0.18);
+  playTone(f[1], 0.12, wave, 0.1, 0.18);
+  playTone(f[2], 0.18, wave, 0.2, 0.18);
 }
 
 function playVictoryMusic(){
@@ -1509,6 +1557,7 @@ function beginLevel(){
 
 function showStudyThenBegin(){
   const level = LEVELS[levelIndex];
+  applyTableTheme(level.table);
   if(level.mode === 'orden'){
     renderStudyGrid(level.table);
     document.getElementById('studyOverlay').classList.add('show');
@@ -1616,15 +1665,17 @@ function nextLevel(){
 function exitFromLevelComplete(){
   const name = currentUserName || 'Jugador';
   savePendingTableRecord(name);
-  const list = loadLeaderboard();
-  list.push({name, score, reached:lastReachedLabel, date:new Date().toLocaleDateString()});
-  list.sort((a,b)=>b.score-a.score);
-  const top = list.slice(0,10);
-  saveLeaderboard(top);
-
   document.getElementById('levelCompleteOverlay').classList.remove('show');
-  renderLeaderboard(top);
-  document.getElementById('leaderboardOverlay').classList.add('show');
+  pauseGameMusic();
+  isPracticeMode = false;
+  practiceTable = null;
+  showTableSelect();
+  playMenuMusic();
+}
+
+function restartCurrentLevel(){
+  document.getElementById('levelCompleteOverlay').classList.remove('show');
+  beginLevel();
 }
 
 function startGame(){

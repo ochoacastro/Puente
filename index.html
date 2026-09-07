@@ -1734,7 +1734,7 @@ function scheduleStudyLoopCheck(gen, cfg){
 function startStudyPlayer(cfg){
   const gen = ++studyYtGen;
   const startSec = cfg.start || 0;
-  const playerVars = { start: startSec, controls: 1, rel: 0, modestbranding: 1, playsinline: 1 };
+  const playerVars = { start: startSec, controls: 0, rel: 0, modestbranding: 1, playsinline: 1, cc_load_policy: 0 };
   if(!cfg.end){ playerVars.loop = 1; playerVars.playlist = cfg.id; }
   studyYtPlayer = new YT.Player('studyYtTarget', {
     width: '100%',
@@ -2194,10 +2194,15 @@ function showLevelComplete(){
   lcHolder.innerHTML = '';
   lcHolder.appendChild(makeRunnerEl());
   const nextBtn = document.getElementById('levelCompleteNextBtn');
-  if(isPracticeMode && levelIndex === LEVELS.length - 1){
+  if(mistakesThisLevel > 0){
+    nextBtn.textContent = 'Intentar de nuevo';
+    nextBtn.onclick = restartCurrentLevel;
+  } else if(isPracticeMode && levelIndex === LEVELS.length - 1){
     nextBtn.textContent = 'Volver a las tablas';
+    nextBtn.onclick = nextLevel;
   } else {
     nextBtn.textContent = 'Siguiente puente';
+    nextBtn.onclick = nextLevel;
   }
   document.getElementById('levelCompleteOverlay').classList.add('show');
 }
